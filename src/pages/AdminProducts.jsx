@@ -1,6 +1,6 @@
 import React, { useContext, useState } from 'react';
 import { ShopContext } from '../context/ShopContext';
-import { Plus, Edit2, Trash2, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Camera, Image as ImageIcon } from 'lucide-react';
 import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -202,12 +202,25 @@ const AdminProducts = () => {
                 </select>
               </div>
               <div className="form-group">
-                <label>Product Image (Camera / Gallery)</label>
+                <label>Product Image</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {imagePreview && (
                     <img src={imagePreview} alt="Preview" style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
                   )}
-                  <input type="file" accept="image/*" onChange={handleImageChange} />
+                  
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    {/* Camera Button */}
+                    <label style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', backgroundColor: 'var(--surface-variant)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                      <Camera size={18} /> Take Photo
+                      <input type="file" accept="image/*" capture="environment" onChange={handleImageChange} style={{ display: 'none' }} />
+                    </label>
+
+                    {/* Gallery Button */}
+                    <label style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', backgroundColor: 'var(--surface-variant)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                      <ImageIcon size={18} /> Gallery
+                      <input type="file" accept="image/*" onChange={handleImageChange} style={{ display: 'none' }} />
+                    </label>
+                  </div>
                 </div>
               </div>
               <div className="form-group">
