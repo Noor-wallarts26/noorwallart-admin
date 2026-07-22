@@ -207,7 +207,7 @@ const AdminProducts = () => {
                   {imagePreview && (
                     <img src={imagePreview} alt="Preview" style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
                   )}
-                  <input type="file" accept="image/*" capture="environment" onChange={handleImageChange} />
+                  <input type="file" accept="image/*" onChange={handleImageChange} />
                 </div>
               </div>
               <div className="form-group">
