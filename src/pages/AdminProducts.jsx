@@ -2,8 +2,7 @@ import React, { useContext, useState } from 'react';
 import { ShopContext } from '../context/ShopContext';
 import { Plus, Edit2, Trash2, X } from 'lucide-react';
 import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../firebase';
+import { db } from '../firebase';
 
 const AdminProducts = () => {
   const { products } = useContext(ShopContext);
@@ -64,9 +63,19 @@ const AdminProducts = () => {
       let finalImageUrl = formData.imageUrl;
 
       if (imageFile) {
-        const imageRef = ref(storage, `products/${Date.now()}_${imageFile.name}`);
-        const snapshot = await uploadBytes(imageRef, imageFile);
-        finalImageUrl = await getDownloadURL(snapshot.ref);
+        const uploadData = new FormData();
+        uploadData.append('image', imageFile);
+        
+        const response = await fetch('https://api.imgbb.com/1/upload?key=6033b63071c9f62db400a5b8e4b0c199', {
+          method: 'POST',
+          body: uploadData
+        });
+        const result = await response.json();
+        if (result.success) {
+          finalImageUrl = result.data.url;
+        } else {
+          throw new Error('ImgBB upload failed');
+        }
       }
 
       const productData = {
