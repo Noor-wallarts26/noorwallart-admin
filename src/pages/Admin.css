@@ -158,24 +158,39 @@
 @media (max-width: 768px) {
   .admin-layout {
     flex-direction: column;
-    position: relative;
-    height: auto;
-    min-height: 100vh;
+    /* Maintain fixed layout so main scrolls independently */
   }
 
   .admin-sidebar {
     width: 100%;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column; /* Stack Brand + Nav */
     border-right: none;
     border-bottom: 1px solid var(--border-color);
+    position: relative; /* For absolute positioning of logout */
   }
 
   .admin-brand {
     padding: 1rem;
     border-bottom: none;
+    text-align: left;
+  }
+
+  .admin-sidebar-footer {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    padding: 0;
+    border-top: none;
+  }
+
+  .admin-email {
+    display: none;
+  }
+
+  .admin-logout-btn {
+    padding: 0.5rem;
+    background-color: rgba(239, 68, 68, 0.1);
+    border-radius: 8px;
   }
 
   .admin-nav {
@@ -185,10 +200,19 @@
     padding: 0;
     overflow-x: auto;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
+    /* Hide scrollbar */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .admin-nav::-webkit-scrollbar {
+    display: none;
   }
 
   .admin-nav-item {
-    padding: 0.75rem 1rem;
+    padding: 1rem;
+    flex: 1;
+    justify-content: center;
     white-space: nowrap;
     border-right: none;
     border-bottom: 3px solid transparent;
@@ -199,24 +223,8 @@
     border-bottom: 3px solid var(--primary);
   }
 
-  .admin-sidebar-footer {
-    display: flex;
-    align-items: center;
-    padding: 1rem;
-    border-top: none;
-  }
-
-  .admin-email {
-    display: none; /* Hide email on mobile to save space */
-  }
-
-  .admin-logout-btn {
-    font-size: 0.9rem;
-  }
-
   .admin-main-content {
     padding: 1rem;
-    overflow-y: visible;
   }
 
   .admin-page-header h1 {
