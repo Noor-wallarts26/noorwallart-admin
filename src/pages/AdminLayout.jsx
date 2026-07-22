@@ -12,12 +12,7 @@ const AdminLayout = () => {
     return <div className="admin-loading">Loading Admin Panel...</div>;
   }
 
-  // Very simple admin check for prototype
-  const isAdmin = user && user.email === 'admin@amazeshop.com';
 
-  if (!isAdmin) {
-    return <Navigate to="/" replace />;
-  }
 
   return (
     <div className="admin-layout">
@@ -27,22 +22,22 @@ const AdminLayout = () => {
         </div>
         <nav className="admin-nav">
           <Link 
-            to="/admin" 
-            className={`admin-nav-item ${location.pathname === '/admin' ? 'active' : ''}`}
+            to="/" 
+            className={`admin-nav-item ${location.pathname === '/' ? 'active' : ''}`}
           >
             <LayoutDashboard size={20} />
             Dashboard
           </Link>
           <Link 
-            to="/admin/products" 
-            className={`admin-nav-item ${location.pathname === '/admin/products' ? 'active' : ''}`}
+            to="/products" 
+            className={`admin-nav-item ${location.pathname === '/products' ? 'active' : ''}`}
           >
             <Package size={20} />
             Products
           </Link>
           <Link 
-            to="/admin/settings" 
-            className={`admin-nav-item ${location.pathname === '/admin/settings' ? 'active' : ''}`}
+            to="/settings" 
+            className={`admin-nav-item ${location.pathname === '/settings' ? 'active' : ''}`}
           >
             <Settings size={20} />
             Settings
