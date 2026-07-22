@@ -13,11 +13,6 @@ const ProtectedRoute = ({ children, requireAdmin = false }) => {
     return <Navigate to="/login" replace />;
   }
 
-  // Simplified admin check (hardcoded email for now)
-  if (requireAdmin && user.email !== 'admin@amazeshop.com') {
-    return <Navigate to="/" replace />;
-  }
-
   return children;
 };
 
