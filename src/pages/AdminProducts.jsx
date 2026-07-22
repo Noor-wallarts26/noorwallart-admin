@@ -2,12 +2,16 @@ import React, { useContext, useState } from 'react';
 import { ShopContext } from '../context/ShopContext';
 import { Plus, Edit2, Trash2, X } from 'lucide-react';
 import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../firebase';
 
 const AdminProducts = () => {
   const { products } = useContext(ShopContext);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [uploading, setUploading] = useState(false);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -21,8 +25,10 @@ const AdminProducts = () => {
   });
 
   const handleOpenModal = (product = null) => {
+    setImageFile(null);
     if (product) {
       setEditingProduct(product);
+      setImagePreview(product.imageUrl || null);
       setFormData({
         title: product.title,
         price: product.price,
@@ -35,6 +41,7 @@ const AdminProducts = () => {
       });
     } else {
       setEditingProduct(null);
+      setImagePreview(null);
       setFormData({
         title: '',
         price: '',
@@ -51,15 +58,25 @@ const AdminProducts = () => {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    const productData = {
-      ...formData,
-      price: parseFloat(formData.price),
-      stock: parseInt(formData.stock),
-      rating: parseFloat(formData.rating),
-      reviewsCount: parseInt(formData.reviewsCount)
-    };
+    setUploading(true);
 
     try {
+      let finalImageUrl = formData.imageUrl;
+
+      if (imageFile) {
+        const imageRef = ref(storage, `products/${Date.now()}_${imageFile.name}`);
+        const snapshot = await uploadBytes(imageRef, imageFile);
+        finalImageUrl = await getDownloadURL(snapshot.ref);
+      }
+
+      const productData = {
+        ...formData,
+        imageUrl: finalImageUrl,
+        price: parseFloat(formData.price),
+        stock: parseInt(formData.stock),
+        rating: parseFloat(formData.rating),
+        reviewsCount: parseInt(formData.reviewsCount)
+      };
       if (editingProduct) {
         // Update
         const docRef = doc(db, "products", editingProduct.id.toString());
@@ -77,6 +94,16 @@ const AdminProducts = () => {
     } catch (err) {
       console.error(err);
       alert("Error saving product");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
     }
   };
 
@@ -166,14 +193,21 @@ const AdminProducts = () => {
                 </select>
               </div>
               <div className="form-group">
-                <label>Image URL (Optional)</label>
-                <input type="text" value={formData.imageUrl} onChange={e => setFormData({...formData, imageUrl: e.target.value})} placeholder="https://example.com/image.jpg" />
+                <label>Product Image (Camera / Gallery)</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {imagePreview && (
+                    <img src={imagePreview} alt="Preview" style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
+                  )}
+                  <input type="file" accept="image/*" capture="environment" onChange={handleImageChange} />
+                </div>
               </div>
               <div className="form-group">
                 <label>Description</label>
                 <textarea rows="3" required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
               </div>
-              <button type="submit" className="btn-primary mt-2">Save Product</button>
+              <button type="submit" className="btn-primary mt-2" disabled={uploading}>
+                {uploading ? 'Uploading Image & Saving...' : 'Save Product'}
+              </button>
             </form>
           </div>
         </div>
