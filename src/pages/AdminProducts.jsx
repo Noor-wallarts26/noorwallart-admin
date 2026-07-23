@@ -169,15 +169,16 @@ const AdminProducts = () => {
       </div>
 
       {isModalOpen && (
-        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, overflowY: 'auto', padding: '20px' }}>
-          <div className="modal-content card" style={{ width: '100%', maxWidth: '500px', padding: '1.5rem', margin: '0 auto', position: 'relative' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div className="modal-content card" style={{ width: '100%', maxWidth: '600px', padding: '1.5rem', position: 'relative', maxHeight: 'calc(100vh - 40px)', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', flexShrink: 0 }}>
               <h2>{editingProduct ? 'Edit Product' : 'Add New Product'}</h2>
               <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}><X size={24} /></button>
             </div>
             
-            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div className="form-group">
+            <div style={{ overflowY: 'auto', paddingRight: '5px' }}>
+              <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className="form-group">
                 <label>Title</label>
                 <input type="text" required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
               </div>
@@ -232,10 +233,11 @@ const AdminProducts = () => {
                 <label>Description</label>
                 <textarea rows="3" required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
               </div>
-              <button type="submit" className="btn-primary mt-2" disabled={uploading}>
-                {uploading ? 'Uploading Image & Saving...' : 'Save Product'}
-              </button>
-            </form>
+                <button type="submit" className="btn-primary mt-2" disabled={uploading}>
+                  {uploading ? 'Uploading Image & Saving...' : 'Save Product'}
+                </button>
+              </form>
+            </div>
           </div>
         </div>
       )}
