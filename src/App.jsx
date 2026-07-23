@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import AdminLayout from './pages/AdminLayout';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminProducts from './pages/AdminProducts';
+import AdminProductForm from './pages/AdminProductForm';
 import AdminSettings from './pages/AdminSettings';
 
 function App() {
@@ -22,6 +23,8 @@ function App() {
           }>
             <Route index element={<AdminDashboard />} />
             <Route path="products" element={<AdminProducts />} />
+            <Route path="products/new" element={<AdminProductForm />} />
+            <Route path="products/edit/:id" element={<AdminProductForm />} />
             <Route path="settings" element={<AdminSettings />} />
           </Route>
 

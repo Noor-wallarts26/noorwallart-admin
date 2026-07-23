@@ -1,118 +1,19 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ShopContext } from '../context/ShopContext';
-import { Plus, Edit2, Trash2, X, Camera, Image as ImageIcon } from 'lucide-react';
-import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const AdminProducts = () => {
   const { products } = useContext(ShopContext);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState(null);
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [uploading, setUploading] = useState(false);
-  
-  const [formData, setFormData] = useState({
-    title: '',
-    price: '',
-    category: 'Islamic wall arts',
-    stock: '',
-    description: '',
-    rating: 0,
-    reviewsCount: 0,
-    imageUrl: ''
-  });
+  const navigate = useNavigate();
 
   const handleOpenModal = (product = null) => {
-    setImageFile(null);
     if (product) {
-      setEditingProduct(product);
-      setImagePreview(product.imageUrl || null);
-      setFormData({
-        title: product.title,
-        price: product.price,
-        category: product.category,
-        stock: product.stock,
-        description: product.description,
-        rating: product.rating || 0,
-        reviewsCount: product.reviewsCount || 0,
-        imageUrl: product.imageUrl || ''
-      });
+      navigate(`/products/edit/${product.id}`, { state: { product } });
     } else {
-      setEditingProduct(null);
-      setImagePreview(null);
-      setFormData({
-        title: '',
-        price: '',
-        category: 'Islamic wall arts',
-        stock: '',
-        description: '',
-        rating: 4.5,
-        reviewsCount: 0,
-        imageUrl: ''
-      });
-    }
-    setIsModalOpen(true);
-  };
-
-  const handleSave = async (e) => {
-    e.preventDefault();
-    setUploading(true);
-
-    try {
-      let finalImageUrl = formData.imageUrl;
-
-      if (imageFile) {
-        const uploadData = new FormData();
-        uploadData.append('image', imageFile);
-        
-        const response = await fetch('https://api.imgbb.com/1/upload?key=6033b63071c9f62db400a5b8e4b0c199', {
-          method: 'POST',
-          body: uploadData
-        });
-        const result = await response.json();
-        if (result.success) {
-          finalImageUrl = result.data.url;
-        } else {
-          throw new Error('ImgBB upload failed');
-        }
-      }
-
-      const productData = {
-        ...formData,
-        imageUrl: finalImageUrl,
-        price: parseFloat(formData.price),
-        stock: parseInt(formData.stock),
-        rating: parseFloat(formData.rating),
-        reviewsCount: parseInt(formData.reviewsCount)
-      };
-      if (editingProduct) {
-        // Update
-        const docRef = doc(db, "products", editingProduct.id.toString());
-        await updateDoc(docRef, productData);
-      } else {
-        // Add
-        const collRef = collection(db, "products");
-        // For new products, we generate an ID manually if we want to keep it simple, or let firestore do it
-        await addDoc(collRef, productData);
-      }
-        setIsModalOpen(false);
-        setUploading(false);
-        alert("Product saved successfully!");
-      } catch (err) {
-        console.error(err);
-        setUploading(false);
-        alert("Error: " + err.message);
-      } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
+      navigate('/products/new');
     }
   };
 
@@ -129,8 +30,8 @@ const AdminProducts = () => {
 
   return (
     <div className="admin-page animate-fade-in">
-      <header className="admin-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>Manage Products</h1>
+      <header className="admin-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <h1 style={{ margin: 0 }}>Manage Products</h1>
         <button className="btn-primary" onClick={() => handleOpenModal()} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <Plus size={18} /> Add Product
         </button>
@@ -167,80 +68,6 @@ const AdminProducts = () => {
           </tbody>
         </table>
       </div>
-
-      {isModalOpen && (
-        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div className="modal-content card" style={{ width: '100%', maxWidth: '600px', padding: '1.5rem', position: 'relative', maxHeight: 'calc(100vh - 40px)', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', flexShrink: 0 }}>
-              <h2>{editingProduct ? 'Edit Product' : 'Add New Product'}</h2>
-              <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}><X size={24} /></button>
-            </div>
-            
-            <div style={{ overflowY: 'auto', paddingRight: '5px' }}>
-              <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div className="form-group">
-                <label>Title</label>
-                <input type="text" required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
-              </div>
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label>Price ($)</label>
-                  <input type="number" step="0.01" required value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
-                </div>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label>Stock</label>
-                  <input type="number" required value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} />
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Category</label>
-                <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                  <option>Islamic wall arts</option>
-                  <option>Customized Frames</option>
-                  <option>Wedding and nikkah collections</option>
-                  <option>Customized Gifts</option>
-                  <option>Acrylic & Glass works</option>
-                  <option>Home decor</option>
-                  <option>Wall stickers & Decals</option>
-                  <option>Custom printing</option>
-                  <option>Corporate and event products</option>
-                  <option>Personalized products</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Product Image</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {imagePreview && (
-                    <img src={imagePreview} alt="Preview" style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
-                  )}
-                  
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    {/* Camera Button */}
-                    <label style={{ flex: 1, height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '0 10px', backgroundColor: 'var(--surface-variant)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '0.9rem', whiteSpace: 'nowrap', margin: 0 }}>
-                      <Camera size={18} /> Take Photo
-                      <input type="file" accept="image/*" capture="environment" onChange={handleImageChange} style={{ display: 'none' }} />
-                    </label>
-
-                    {/* Gallery Button */}
-                    <label style={{ flex: 1, height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '0 10px', backgroundColor: 'var(--surface-variant)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '0.9rem', whiteSpace: 'nowrap', margin: 0 }}>
-                      <ImageIcon size={18} /> Gallery
-                      <input type="file" accept="image/*" onChange={handleImageChange} style={{ display: 'none' }} />
-                    </label>
-                  </div>
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Description</label>
-                <textarea rows="3" required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
-              </div>
-                <button type="submit" className="btn-primary mt-2" disabled={uploading}>
-                  {uploading ? 'Uploading Image & Saving...' : 'Save Product'}
-                </button>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
