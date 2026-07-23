@@ -60,7 +60,7 @@ const AdminProductForm = () => {
         const uploadData = new FormData();
         uploadData.append('image', imageFile);
         
-        const response = await fetch('https://api.imgbb.com/1/upload?key=6033b63071c9f62db400a5b8e4b0c199', {
+        const response = await fetch('https://api.imgbb.com/1/upload?key=a83109541379cee03db02b491fb98c17', {
           method: 'POST',
           body: uploadData
         });
@@ -68,7 +68,7 @@ const AdminProductForm = () => {
         if (result.success) {
           finalImageUrl = result.data.url;
         } else {
-          throw new Error('ImgBB upload failed');
+          throw new Error('ImgBB upload failed: ' + (result.error?.message || 'Unknown error'));
         }
       }
 
