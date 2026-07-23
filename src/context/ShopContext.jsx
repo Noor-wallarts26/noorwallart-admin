@@ -34,9 +34,20 @@ export const AdminProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
-  // Fetch orders (mocked for now, if using firestore for orders, fetch them here)
+  // Fetch orders from Firestore
   useEffect(() => {
-    setOrders([]);
+    const unsubscribe = onSnapshot(collection(db, "orders"), (snapshot) => {
+      const ordersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      // Sort by timestamp descending (newest first)
+      ordersData.sort((a, b) => b.timestamp - a.timestamp);
+      setOrders(ordersData);
+    }, (error) => {
+      console.error("Error fetching orders: ", error);
+    });
+    return () => unsubscribe();
   }, []);
 
   return (
