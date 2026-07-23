@@ -26,7 +26,8 @@ const AdminProductForm = () => {
     description: existingProduct?.description || '',
     rating: existingProduct?.rating || 4.5,
     reviewsCount: existingProduct?.reviewsCount || 0,
-    imageUrl: existingProduct?.imageUrl || ''
+    imageUrl: existingProduct?.imageUrl || '',
+    showInSlider: existingProduct?.showInSlider || false
   });
 
   useEffect(() => {
@@ -43,7 +44,8 @@ const AdminProductForm = () => {
           description: p.description,
           rating: p.rating || 0,
           reviewsCount: p.reviewsCount || 0,
-          imageUrl: p.imageUrl || ''
+          imageUrl: p.imageUrl || '',
+          showInSlider: p.showInSlider || false
         });
       }
     }
@@ -186,6 +188,17 @@ const AdminProductForm = () => {
           <div className="form-group">
             <label>Description</label>
             <textarea rows="4" required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} style={{ resize: 'vertical' }} />
+          </div>
+
+          <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <input 
+              type="checkbox" 
+              id="showInSlider"
+              checked={formData.showInSlider}
+              onChange={e => setFormData({...formData, showInSlider: e.target.checked})}
+              style={{ width: 'auto', margin: 0, width: '20px', height: '20px' }}
+            />
+            <label htmlFor="showInSlider" style={{ margin: 0, cursor: 'pointer' }}>Show in Homepage Slider</label>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
