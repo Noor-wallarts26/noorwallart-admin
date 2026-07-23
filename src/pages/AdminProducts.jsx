@@ -15,7 +15,7 @@ const AdminProducts = () => {
   const [formData, setFormData] = useState({
     title: '',
     price: '',
-    category: 'Electronics',
+    category: 'Islamic wall arts',
     stock: '',
     description: '',
     rating: 0,
@@ -44,7 +44,7 @@ const AdminProducts = () => {
       setFormData({
         title: '',
         price: '',
-        category: 'Electronics',
+        category: 'Islamic wall arts',
         stock: '',
         description: '',
         rating: 4.5,
@@ -194,11 +194,16 @@ const AdminProducts = () => {
               <div className="form-group">
                 <label>Category</label>
                 <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                  <option>Electronics</option>
-                  <option>Fashion</option>
-                  <option>Books</option>
-                  <option>Home</option>
-                  <option>Beauty</option>
+                  <option>Islamic wall arts</option>
+                  <option>Customized Frames</option>
+                  <option>Wedding and nikkah collections</option>
+                  <option>Customized Gifts</option>
+                  <option>Acrylic & Glass works</option>
+                  <option>Home decor</option>
+                  <option>Wall stickers & Decals</option>
+                  <option>Custom printing</option>
+                  <option>Corporate and event products</option>
+                  <option>Personalized products</option>
                 </select>
               </div>
               <div className="form-group">
