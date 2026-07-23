@@ -53,7 +53,7 @@ const AdminProducts = () => {
               <tr key={p.id}>
                 <td>{p.title}</td>
                 <td>{p.category}</td>
-                <td>${p.price.toFixed(2)}</td>
+                <td>₹{p.price.toFixed(2)}</td>
                 <td>
                   <span className={p.stock > 0 ? "admin-badge success" : "admin-badge"} style={{ backgroundColor: p.stock === 0 ? 'rgba(239, 68, 68, 0.2)' : undefined, color: p.stock === 0 ? '#ef4444' : undefined }}>
                     {p.stock}

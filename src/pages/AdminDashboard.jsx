@@ -38,9 +38,9 @@ const AdminDashboard = () => {
       <div className="admin-stats-grid">
         <div className="admin-stat-card">
           <h3>Total Revenue</h3>
-          <p className="stat-value">
-            ${orders.reduce((sum, order) => sum + order.totalPrice, 0).toFixed(2)}
-          </p>
+          <div className="stat-value">
+            ₹{orders.reduce((sum, order) => sum + order.totalPrice, 0).toFixed(2)}
+          </div>
         </div>
         <div className="admin-stat-card">
           <h3>Total Orders</h3>
@@ -86,7 +86,7 @@ const AdminDashboard = () => {
                     <td>{order.id}</td>
                     <td>{new Date(order.timestamp).toLocaleDateString()}</td>
                     <td><span className="admin-badge success">{order.status}</span></td>
-                    <td>${order.totalPrice.toFixed(2)}</td>
+                    <td>₹{order.totalPrice.toFixed(2)}</td>
                   </tr>
                 ))
               )}

@@ -133,7 +133,7 @@ const AdminProductForm = () => {
 
           <div style={{ display: 'flex', gap: '1.5rem' }}>
             <div className="form-group" style={{ flex: 1 }}>
-              <label>Price ($)</label>
+              <label>Price (₹)</label>
               <input type="number" step="0.01" required value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
             </div>
             <div className="form-group" style={{ flex: 1 }}>
