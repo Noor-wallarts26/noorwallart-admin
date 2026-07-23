@@ -215,13 +215,13 @@ const AdminProducts = () => {
                   
                   <div style={{ display: 'flex', gap: '10px' }}>
                     {/* Camera Button */}
-                    <label style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', backgroundColor: 'var(--surface-variant)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                    <label style={{ flex: 1, height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '0 10px', backgroundColor: 'var(--surface-variant)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '0.9rem', whiteSpace: 'nowrap', margin: 0 }}>
                       <Camera size={18} /> Take Photo
                       <input type="file" accept="image/*" capture="environment" onChange={handleImageChange} style={{ display: 'none' }} />
                     </label>
 
                     {/* Gallery Button */}
-                    <label style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', backgroundColor: 'var(--surface-variant)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                    <label style={{ flex: 1, height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '0 10px', backgroundColor: 'var(--surface-variant)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '0.9rem', whiteSpace: 'nowrap', margin: 0 }}>
                       <ImageIcon size={18} /> Gallery
                       <input type="file" accept="image/*" onChange={handleImageChange} style={{ display: 'none' }} />
                     </label>
