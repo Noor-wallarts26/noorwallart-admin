@@ -96,14 +96,14 @@ const AdminProducts = () => {
         // For new products, we generate an ID manually if we want to keep it simple, or let firestore do it
         await addDoc(collRef, productData);
       }
-      setIsModalOpen(false);
-      // In a real app, ShopContext should have a listener for firestore so it updates automatically
-      // But since we are pushing directly, we just alert or rely on the context listener
-      alert("Product saved! Refresh page if context hasn't updated.");
-    } catch (err) {
-      console.error(err);
-      alert("Error saving product");
-    } finally {
+        setIsModalOpen(false);
+        setUploading(false);
+        alert("Product saved successfully!");
+      } catch (err) {
+        console.error(err);
+        setUploading(false);
+        alert("Error: " + err.message);
+      } finally {
       setUploading(false);
     }
   };
