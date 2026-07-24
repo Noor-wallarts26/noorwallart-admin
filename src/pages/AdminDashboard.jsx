@@ -3,7 +3,7 @@ import { ShopContext } from '../context/ShopContext';
 import { Package, IndianRupee, Clock, CheckCircle } from 'lucide-react';
 
 const AdminDashboard = () => {
-  const { orders, products, acceptOrder } = useContext(ShopContext);
+  const { orders, products, acceptOrder, deleteOrder } = useContext(ShopContext);
 
   const totalRevenue = orders
     .filter(o => o.status === 'Accepted' || o.status === 'Completed' || o.status === 'Processing')
@@ -131,6 +131,21 @@ const AdminDashboard = () => {
                           Notify via WhatsApp
                         </a>
                       )}
+                      <div style={{ marginTop: '0.5rem' }}>
+                        <button 
+                          onClick={() => deleteOrder(order.id)}
+                          style={{ 
+                            background: 'none', 
+                            border: 'none', 
+                            color: 'var(--error)', 
+                            fontSize: '0.8rem', 
+                            cursor: 'pointer', 
+                            textDecoration: 'underline' 
+                          }}
+                        >
+                          Delete Order
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

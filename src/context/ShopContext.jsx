@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from '../firebase';
-import { collection, onSnapshot, updateDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 
 export const ShopContext = createContext();
 
@@ -64,6 +64,17 @@ export const AdminProvider = ({ children }) => {
     }
   };
 
+  const deleteOrder = async (orderId) => {
+    if (window.confirm("Are you sure you want to delete this order?")) {
+      try {
+        await deleteDoc(doc(db, "orders", orderId));
+      } catch (err) {
+        console.error("Error deleting order: ", err);
+        alert("Failed to delete order");
+      }
+    }
+  };
+
   return (
     <ShopContext.Provider value={{
       products,
@@ -71,6 +82,7 @@ export const AdminProvider = ({ children }) => {
       user,
       loading,
       acceptOrder,
+      deleteOrder,
       logout: () => signOut(auth)
     }}>
       {children}
