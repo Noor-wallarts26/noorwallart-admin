@@ -9,7 +9,7 @@ const AdminDashboard = () => {
     .filter(o => o.status === 'Accepted' || o.status === 'Completed' || o.status === 'Processing')
     .reduce((sum, order) => sum + order.totalPrice, 0);
 
-  const pendingOrders = orders.filter(o => o.status === 'Pending');
+  const pendingOrders = orders.filter(o => o.status?.toLowerCase() === 'pending');
 
   const formatDate = (timestamp) => {
     return new Date(timestamp).toLocaleDateString('en-IN', {
@@ -103,7 +103,7 @@ const AdminDashboard = () => {
                       </span>
                     </td>
                     <td>
-                      {order.status === 'Pending' ? (
+                      {order.status?.toLowerCase() === 'pending' ? (
                         <button 
                           className="btn-primary" 
                           style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
