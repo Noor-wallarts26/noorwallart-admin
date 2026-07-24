@@ -8,6 +8,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminProducts from './pages/AdminProducts';
 import AdminProductForm from './pages/AdminProductForm';
 import AdminSettings from './pages/AdminSettings';
+import AdminOrders from './pages/AdminOrders';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
             </ProtectedRoute>
           }>
             <Route index element={<AdminDashboard />} />
+            <Route path="orders" element={<AdminOrders />} />
             <Route path="products" element={<AdminProducts />} />
             <Route path="products/new" element={<AdminProductForm />} />
             <Route path="products/edit/:id" element={<AdminProductForm />} />

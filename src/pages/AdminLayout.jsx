@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { Navigate, Link, Outlet, useLocation } from 'react-router-dom';
 import { ShopContext } from '../context/ShopContext';
-import { LayoutDashboard, Package, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, Package, Settings, LogOut, ShoppingCart } from 'lucide-react';
 import './Admin.css';
 
 const AdminLayout = () => {
@@ -28,6 +28,13 @@ const AdminLayout = () => {
           >
             <LayoutDashboard size={20} />
             Dashboard
+          </Link>
+          <Link 
+            to="/orders" 
+            className={`admin-nav-item ${location.pathname === '/orders' ? 'active' : ''}`}
+          >
+            <ShoppingCart size={20} />
+            Orders
           </Link>
           <Link 
             to="/products" 
