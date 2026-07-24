@@ -55,6 +55,19 @@ const AdminOrders = () => {
                     <td>
                       <div style={{ fontWeight: '500' }}>{order.customer?.name}</div>
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{order.customer?.phone}</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px', whiteSpace: 'pre-line' }}>{order.customer?.address}</div>
+                      {order.customer?.lat && order.customer?.lng && (
+                        <div style={{ marginTop: '4px' }}>
+                          <a 
+                            href={`https://www.google.com/maps/search/?api=1&query=${order.customer.lat},${order.customer.lng}`} 
+                            target="_blank" 
+                            rel="noreferrer"
+                            style={{ fontSize: '0.75rem', color: 'var(--primary)', textDecoration: 'underline', fontWeight: 'bold' }}
+                          >
+                            📍 View on Map
+                          </a>
+                        </div>
+                      )}
                     </td>
                     <td>
                       <div style={{ fontSize: '0.85rem' }}>Method: <strong>{order.paymentMethod || 'N/A'}</strong></div>
