@@ -54,7 +54,8 @@ export const AdminProvider = ({ children }) => {
     try {
       const orderRef = doc(db, "orders", orderId);
       await updateDoc(orderRef, {
-        status: "Accepted"
+        status: "Accepted",
+        paymentStatus: "PAID"
       });
       alert("Order Accepted successfully!");
     } catch (err) {

@@ -18,6 +18,17 @@ const AdminDashboard = () => {
     });
   };
 
+  const getWhatsAppLink = (order) => {
+    const phone = order.customer?.phone || '';
+    if (!phone) return '#';
+    // Format to 91XXXXXXXXXX
+    const formattedPhone = phone.replace(/\D/g, '');
+    const finalPhone = formattedPhone.length === 10 ? '91' + formattedPhone : formattedPhone;
+    
+    const message = `Hello ${order.customer?.name},\n\nThank you for your order (#${order.id}) from Noor Wall Arts! We have successfully received your payment of ₹${order.totalPrice.toFixed(2)}. Your order is now confirmed and we will process it shortly.\n\nThank you!`;
+    return `https://wa.me/${finalPhone}?text=${encodeURIComponent(message)}`;
+  };
+
   return (
     <div className="admin-page animate-fade-in">
       <header className="admin-page-header">
@@ -43,7 +54,7 @@ const AdminDashboard = () => {
 
         <div className="admin-stat-card" style={{ borderColor: pendingOrders.length > 0 ? 'var(--warning)' : 'var(--border-color)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ color: pendingOrders.length > 0 ? 'var(--warning)' : 'var(--text-secondary)' }}>Pending Orders</h3>
+            <h3 style={{ color: pendingOrders.length > 0 ? 'var(--warning)' : 'var(--text-secondary)' }}>Pending Verification</h3>
             <Clock size={20} color={pendingOrders.length > 0 ? "var(--warning)" : "var(--text-secondary)"} />
           </div>
           <p className="stat-value" style={{ color: pendingOrders.length > 0 ? 'var(--warning)' : 'var(--text-primary)' }}>{pendingOrders.length}</p>
@@ -51,15 +62,14 @@ const AdminDashboard = () => {
       </div>
 
       <section className="admin-section" style={{ marginTop: '3rem' }}>
-        <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>Recent Orders</h2>
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>Recent Orders & Payments</h2>
         <div className="card admin-table-container">
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Order ID</th>
-                <th>Date</th>
+                <th>Order ID & Date</th>
                 <th>Customer</th>
-                <th>Items</th>
+                <th>Payment Info</th>
                 <th>Amount</th>
                 <th>Status</th>
                 <th>Action</th>
@@ -67,17 +77,25 @@ const AdminDashboard = () => {
             </thead>
             <tbody>
               {orders.length === 0 ? (
-                <tr><td colSpan="7" style={{textAlign: 'center', padding: '2rem'}}>No orders found</td></tr>
+                <tr><td colSpan="6" style={{textAlign: 'center', padding: '2rem'}}>No orders found</td></tr>
               ) : (
                 orders.map(order => (
                   <tr key={order.id}>
-                    <td style={{ fontWeight: 'bold' }}>#{order.id}</td>
-                    <td style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{formatDate(order.timestamp)}</td>
                     <td>
-                      <div>{order.customer?.name}</div>
+                      <div style={{ fontWeight: 'bold' }}>#{order.id}</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '4px' }}>{formatDate(order.timestamp)}</div>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: '500' }}>{order.customer?.name}</div>
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{order.customer?.phone}</div>
                     </td>
-                    <td style={{ maxWidth: '200px', fontSize: '0.85rem' }}>{order.itemsSummary}</td>
+                    <td>
+                      <div style={{ fontSize: '0.85rem' }}>Method: <strong>{order.paymentMethod || 'N/A'}</strong></div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--primary)', marginTop: '2px' }}>Txn ID: {order.transactionId || 'N/A'}</div>
+                      {order.paymentStatus === 'PAID' && (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--success)', marginTop: '4px', fontWeight: 'bold' }}>✓ PAID</div>
+                      )}
+                    </td>
                     <td style={{ fontWeight: 'bold', color: 'var(--primary)' }}>₹{order.totalPrice.toFixed(2)}</td>
                     <td>
                       <span className={`status-badge ${order.status.toLowerCase()}`}>
@@ -88,13 +106,30 @@ const AdminDashboard = () => {
                       {order.status === 'Pending' ? (
                         <button 
                           className="btn-primary" 
-                          style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
+                          style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
                           onClick={() => acceptOrder(order.id)}
                         >
-                          <CheckCircle size={14} /> Accept
+                          Verify & Mark PAID
                         </button>
                       ) : (
-                        <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>-</span>
+                        <a 
+                          href={getWhatsAppLink(order)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn-secondary" 
+                          style={{ 
+                            padding: '0.5rem 1rem', 
+                            fontSize: '0.85rem', 
+                            backgroundColor: '#25D366', 
+                            color: '#fff', 
+                            border: 'none', 
+                            borderRadius: '8px', 
+                            display: 'inline-block',
+                            textDecoration: 'none'
+                          }}
+                        >
+                          Notify via WhatsApp
+                        </a>
                       )}
                     </td>
                   </tr>
