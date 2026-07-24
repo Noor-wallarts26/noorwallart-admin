@@ -2,7 +2,7 @@ import React, { useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShopContext } from '../context/ShopContext';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
-import { deleteDoc, doc } from 'firebase/firestore';
+import { deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const AdminProducts = () => {
@@ -28,10 +28,22 @@ const AdminProducts = () => {
     }
   };
 
+  const toggleSliderStatus = async (id, currentStatus) => {
+    try {
+      const productRef = doc(db, "products", id.toString());
+      await updateDoc(productRef, {
+        showInSlider: !currentStatus
+      });
+    } catch (err) {
+      console.error("Error updating slider status: ", err);
+      alert("Failed to update slider status");
+    }
+  };
+
   return (
     <div className="admin-page animate-fade-in">
       <header className="admin-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h1 style={{ margin: 0 }}>Manage Products</h1>
+        <h1 style={{ margin: 0 }}>Slide Products</h1>
         <button className="btn-primary" onClick={() => handleOpenModal()} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <Plus size={18} /> Add Product
         </button>
@@ -41,6 +53,7 @@ const AdminProducts = () => {
         <table className="admin-table">
           <thead>
             <tr>
+              <th>Slide</th>
               <th>Title</th>
               <th>Category</th>
               <th>Price</th>
@@ -51,6 +64,14 @@ const AdminProducts = () => {
           <tbody>
             {products.map(p => (
               <tr key={p.id}>
+                <td style={{ textAlign: 'center' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={p.showInSlider || false} 
+                    onChange={() => toggleSliderStatus(p.id, p.showInSlider || false)}
+                    style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: 'var(--primary)' }}
+                  />
+                </td>
                 <td>{p.title}</td>
                 <td>{p.category}</td>
                 <td>₹{p.price.toFixed(2)}</td>
