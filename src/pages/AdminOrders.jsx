@@ -3,7 +3,7 @@ import { ShopContext } from '../context/ShopContext';
 import { CheckCircle } from 'lucide-react';
 
 const AdminOrders = () => {
-  const { orders, acceptOrder, deleteOrder } = useContext(ShopContext);
+  const { orders, acceptOrder, rejectOrder, deleteOrder } = useContext(ShopContext);
 
   const formatDate = (timestamp) => {
     return new Date(timestamp).toLocaleDateString('en-IN', {
@@ -84,13 +84,22 @@ const AdminOrders = () => {
                     </td>
                     <td>
                       {order.status?.toLowerCase() === 'pending' ? (
-                        <button 
-                          className="btn-primary" 
-                          style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-                          onClick={() => acceptOrder(order.id)}
-                        >
-                          Verify & Mark PAID
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
+                          <button 
+                            className="btn-primary" 
+                            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                            onClick={() => acceptOrder(order.id)}
+                          >
+                            Accept Order
+                          </button>
+                          <button 
+                            className="btn-secondary" 
+                            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5' }}
+                            onClick={() => rejectOrder(order.id)}
+                          >
+                            Reject Order
+                          </button>
+                        </div>
                       ) : (
                         <a 
                           href={getWhatsAppLink(order)}

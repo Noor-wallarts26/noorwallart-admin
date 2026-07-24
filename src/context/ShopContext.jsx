@@ -64,6 +64,22 @@ export const AdminProvider = ({ children }) => {
     }
   };
 
+  const rejectOrder = async (orderId) => {
+    if (window.confirm("Are you sure you want to REJECT this order? The customer will see it as rejected.")) {
+      try {
+        const orderRef = doc(db, "orders", orderId);
+        await updateDoc(orderRef, {
+          status: "Rejected",
+          paymentStatus: "FAILED"
+        });
+        alert("Order Rejected successfully!");
+      } catch (err) {
+        console.error("Error rejecting order: ", err);
+        alert("Failed to reject order");
+      }
+    }
+  };
+
   const deleteOrder = async (orderId) => {
     if (window.confirm("Are you sure you want to delete this order?")) {
       try {
@@ -82,6 +98,7 @@ export const AdminProvider = ({ children }) => {
       user,
       loading,
       acceptOrder,
+      rejectOrder,
       deleteOrder,
       logout: () => signOut(auth)
     }}>
