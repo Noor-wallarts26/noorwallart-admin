@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from '../firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 
 export const ShopContext = createContext();
 
@@ -50,12 +50,26 @@ export const AdminProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
+  const acceptOrder = async (orderId) => {
+    try {
+      const orderRef = doc(db, "orders", orderId);
+      await updateDoc(orderRef, {
+        status: "Accepted"
+      });
+      alert("Order Accepted successfully!");
+    } catch (err) {
+      console.error("Error accepting order: ", err);
+      alert("Failed to accept order");
+    }
+  };
+
   return (
     <ShopContext.Provider value={{
       products,
       orders,
       user,
       loading,
+      acceptOrder,
       logout: () => signOut(auth)
     }}>
       {children}

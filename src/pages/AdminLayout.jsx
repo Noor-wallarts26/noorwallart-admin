@@ -18,7 +18,8 @@ const AdminLayout = () => {
     <div className="admin-layout">
       <aside className="admin-sidebar">
         <div className="admin-brand">
-          <h2>AmazeShop Admin</h2>
+          <h2 style={{ color: 'var(--primary)', fontFamily: 'var(--font-serif)', fontSize: '1.5rem', margin: 0 }}>Noor Wall Arts</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', letterSpacing: '2px', textTransform: 'uppercase' }}>Admin Panel</p>
         </div>
         <nav className="admin-nav">
           <Link 
