@@ -23,6 +23,7 @@ const AdminProductForm = () => {
     price: existingProduct?.price || '',
     category: existingProduct?.category || 'Islamic wall arts',
     stock: existingProduct?.stock || '',
+    deliveryCharge: existingProduct?.deliveryCharge !== undefined ? existingProduct.deliveryCharge : 80,
     description: existingProduct?.description || '',
     rating: existingProduct?.rating || 4.5,
     reviewsCount: existingProduct?.reviewsCount || 0,
@@ -79,6 +80,7 @@ const AdminProductForm = () => {
         imageUrl: finalImageUrl,
         price: parseFloat(formData.price),
         stock: parseInt(formData.stock),
+        deliveryCharge: parseFloat(formData.deliveryCharge),
         rating: parseFloat(formData.rating),
         reviewsCount: parseInt(formData.reviewsCount)
       };
@@ -141,6 +143,10 @@ const AdminProductForm = () => {
             <div className="form-group" style={{ flex: 1 }}>
               <label>Stock</label>
               <input type="number" required value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} />
+            </div>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label>Delivery Charge (₹)</label>
+              <input type="number" required value={formData.deliveryCharge} onChange={e => setFormData({...formData, deliveryCharge: e.target.value === '' ? '' : e.target.value})} />
             </div>
           </div>
 
