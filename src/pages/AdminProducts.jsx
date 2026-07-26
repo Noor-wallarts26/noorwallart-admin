@@ -40,6 +40,18 @@ const AdminProducts = () => {
     }
   };
 
+  const updateDeliveryCharge = async (id, newCharge) => {
+    try {
+      const productRef = doc(db, "products", id.toString());
+      await updateDoc(productRef, {
+        deliveryCharge: newCharge
+      });
+    } catch (err) {
+      console.error("Error updating delivery charge: ", err);
+      alert("Failed to update delivery charge");
+    }
+  };
+
   return (
     <div className="admin-page animate-fade-in">
       <header className="admin-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
@@ -58,6 +70,7 @@ const AdminProducts = () => {
               <th>Category</th>
               <th>Price</th>
               <th>Stock</th>
+              <th>Delivery (₹)</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -79,6 +92,14 @@ const AdminProducts = () => {
                   <span className={p.stock > 0 ? "admin-badge success" : "admin-badge"} style={{ backgroundColor: p.stock === 0 ? 'rgba(239, 68, 68, 0.2)' : undefined, color: p.stock === 0 ? '#ef4444' : undefined }}>
                     {p.stock}
                   </span>
+                </td>
+                <td>
+                  <input 
+                    type="number"
+                    defaultValue={p.deliveryCharge !== undefined ? p.deliveryCharge : 80}
+                    onBlur={(e) => updateDeliveryCharge(p.id, Number(e.target.value))}
+                    style={{ width: '60px', padding: '0.2rem', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'var(--bg-color)', color: 'var(--text-color)' }}
+                  />
                 </td>
                 <td>
                   <button onClick={() => handleOpenModal(p)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', marginRight: '0.5rem' }}><Edit2 size={16} /></button>
