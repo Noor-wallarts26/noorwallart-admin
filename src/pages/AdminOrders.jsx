@@ -161,8 +161,8 @@ const AdminOrders = () => {
                                 transition: 'all 0.2s'
                               }}
                               onClick={() => rejectOrder(order.id)}
-                              onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--error)', e.currentTarget.style.color = '#fff'}
-                              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)', e.currentTarget.style.color = 'var(--error)'}
+                              onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'var(--error)'; e.currentTarget.style.color = '#fff'; }}
+                              onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'; e.currentTarget.style.color = 'var(--error)'; }}
                             >
                               ❌ Reject Order
                             </button>
