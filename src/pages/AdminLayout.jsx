@@ -115,9 +115,19 @@ const AdminLayout = () => {
               </button>
             )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <img src="/logo.jpg" alt="Noor Wallarts Logo" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} />
-            <h2 style={{ fontFamily: 'var(--font-family)', color: 'var(--text-primary)', fontSize: '1.1rem', margin: 0 }}>Noor Wallarts & Gifts</h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.5rem 0 0.75rem 0' }}>
+            <img
+              src="/logo.jpg"
+              alt="Noor Wallarts & Gifts"
+              style={{
+                width: '120px',
+                height: '120px',
+                borderRadius: '16px',
+                objectFit: 'contain',
+                background: 'transparent',
+                display: 'block'
+              }}
+            />
           </div>
         </div>
         
