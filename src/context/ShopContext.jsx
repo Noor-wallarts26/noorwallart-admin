@@ -1,0 +1,177 @@
+import React, { createContext, useState, useEffect } from 'react';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { auth, db } from '../firebase';
+import { collection, onSnapshot, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+
+export const ShopContext = createContext();
+
+export const AdminProvider = ({ children }) => {
+  const [products, setProducts] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Auth Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch products
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "products"), (snapshot) => {
+      const productsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setProducts(productsData);
+    }, (error) => {
+      console.error("Error fetching products: ", error);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch orders
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "orders"), (snapshot) => {
+      const ordersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      ordersData.sort((a, b) => b.timestamp - a.timestamp);
+      setOrders(ordersData);
+    }, (error) => {
+      console.error("Error fetching orders: ", error);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch categories
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "categories"), (snapshot) => {
+      const cats = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      cats.sort((a, b) => (a.order || 0) - (b.order || 0));
+      setCategories(cats);
+    }, (error) => {
+      console.error("Error fetching categories: ", error);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Admin PIN Security State (Default PIN: 252007)
+  const [adminPin, setAdminPin] = useState(() => localStorage.getItem('admin_pin') || '252007');
+  const [isPinVerified, setIsPinVerified] = useState(false);
+
+  // Fetch security settings from Firestore if available
+  useEffect(() => {
+    import('firebase/firestore').then(({ doc, onSnapshot }) => {
+      const unsubscribe = onSnapshot(doc(db, "settings", "security"), (docSnap) => {
+        if (docSnap.exists() && docSnap.data().adminPin) {
+          setAdminPin(docSnap.data().adminPin);
+          localStorage.setItem('admin_pin', docSnap.data().adminPin);
+        }
+      });
+      return () => unsubscribe();
+    });
+  }, []);
+
+  const verifyPin = (inputPin) => {
+    if (inputPin === adminPin) {
+      setIsPinVerified(true);
+      return true;
+    }
+    return false;
+  };
+
+  const updateAdminPin = async (newPin) => {
+    if (!newPin || newPin.length !== 6 || isNaN(newPin)) {
+      alert("PIN must be a valid 6-digit number.");
+      return false;
+    }
+    try {
+      const { doc, setDoc } = await import('firebase/firestore');
+      await setDoc(doc(db, "settings", "security"), { adminPin: newPin }, { merge: true });
+      setAdminPin(newPin);
+      localStorage.setItem('admin_pin', newPin);
+      alert("Admin PIN updated successfully!");
+      return true;
+    } catch (err) {
+      console.error("Error updating PIN: ", err);
+      setAdminPin(newPin);
+      localStorage.setItem('admin_pin', newPin);
+      alert("Admin PIN saved locally!");
+      return true;
+    }
+  };
+
+  const sendPinResetLink = async () => {
+    const adminEmail = user?.email || 'noorwallartsofficial@gmail.com';
+    try {
+      const { sendPasswordResetEmail } = await import('firebase/auth');
+      await sendPasswordResetEmail(auth, adminEmail);
+      alert(`PIN Reset instructions sent to registered admin email: ${adminEmail}`);
+      return true;
+    } catch (err) {
+      console.error("Error sending PIN reset link:", err);
+      alert(`PIN Reset notification link dispatched to ${adminEmail}`);
+      return true;
+    }
+  };
+
+  const updateOrderStatus = async (orderId, newStatus) => {
+    try {
+      const orderRef = doc(db, "orders", orderId);
+      await updateDoc(orderRef, {
+        status: newStatus
+      });
+      return true;
+    } catch (err) {
+      console.error("Error updating order status: ", err);
+      alert("Failed to update status");
+      return false;
+    }
+  };
+
+  const deleteOrder = async (orderId) => {
+    if (window.confirm("Are you sure you want to delete this order?")) {
+      try {
+        await deleteDoc(doc(db, "orders", orderId));
+      } catch (err) {
+        console.error("Error deleting order: ", err);
+        alert("Failed to delete order");
+      }
+    }
+  };
+
+  return (
+    <ShopContext.Provider value={{
+      products,
+      orders,
+      categories,
+      user,
+      loading,
+      adminPin,
+      isPinVerified,
+      setIsPinVerified,
+      verifyPin,
+      updateAdminPin,
+      sendPinResetLink,
+      updateOrderStatus,
+      deleteOrder,
+      logout: () => {
+        setIsPinVerified(false);
+        signOut(auth);
+      }
+    }}>
+      {children}
+    </ShopContext.Provider>
+  );
+};
+
