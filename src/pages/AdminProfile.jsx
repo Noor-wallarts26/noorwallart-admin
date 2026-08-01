@@ -106,8 +106,20 @@ const AdminProfile = () => {
         
         {/* Profile Details Card */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '3rem 2rem' }}>
-          <img src="/logo.jpg" alt="Noor Wallarts Admin" style={{ width: '96px', height: '96px', borderRadius: '50%', objectFit: 'cover', marginBottom: '1.5rem', border: '3px solid var(--primary)' }} />
-          <h2 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)' }}>Noor Wallarts Super Admin</h2>
+          <img
+            src="/logo.jpg"
+            alt="Noor Wallarts & Gifts"
+            style={{
+              width: '140px',
+              height: '140px',
+              borderRadius: '50%',
+              objectFit: 'cover',
+              marginBottom: '1.25rem',
+              border: '4px solid rgba(180,120,80,0.4)',
+              boxShadow: '0 6px 20px rgba(180,120,80,0.2)'
+            }}
+          />
+          <h2 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', fontSize: '1.2rem' }}>Noor Wallarts &amp; Gifts</h2>
           <span className="status-badge delivered" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', marginBottom: '1.5rem' }}>
             <Shield size={14} /> Full Access Verified
           </span>

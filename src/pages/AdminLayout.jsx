@@ -235,9 +235,32 @@ const AdminLayout = () => {
             </div>
           </div>
           <div className="admin-header-actions">
-            <div className="admin-profile-btn" onClick={handleProfileClick} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }} title="Admin Profile & Security">
-              <img src="/logo.jpg" alt="Noor Wallarts Admin" style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} />
-              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Admin</span>
+            <div
+              className="admin-profile-btn"
+              onClick={handleProfileClick}
+              title="Noor Wallarts & Gifts – Admin Profile"
+              style={{
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '4px',
+                borderRadius: '50%',
+                transition: 'box-shadow 0.2s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.boxShadow = '0 0 0 3px rgba(180,120,80,0.3)'}
+              onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+            >
+              <img
+                src="/logo.jpg"
+                alt="Noor Wallarts & Gifts"
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                  border: '2px solid rgba(180,120,80,0.4)'
+                }}
+              />
             </div>
           </div>
         </header>
@@ -252,7 +275,20 @@ const AdminLayout = () => {
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
           <div className="card" style={{ width: '100%', maxWidth: '400px', padding: '2rem', borderRadius: '16px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
             <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-              <img src="/logo.jpg" alt="Noor Wallarts" style={{ width: '64px', height: '64px', borderRadius: '50%', margin: '0 auto 1rem auto' }} />
+              <img
+                src="/logo.jpg"
+                alt="Noor Wallarts & Gifts"
+                style={{
+                  width: '90px',
+                  height: '90px',
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                  margin: '0 auto 1rem auto',
+                  display: 'block',
+                  border: '3px solid rgba(180,120,80,0.3)',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.12)'
+                }}
+              />
               <h3 style={{ margin: '0 0 0.5rem 0' }}>Security PIN Required</h3>
               <p className="text-sm text-muted">Enter your 6-digit Admin PIN to view secure profile details.</p>
             </div>
