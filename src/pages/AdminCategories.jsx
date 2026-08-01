@@ -79,12 +79,12 @@ const AdminCategories = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     try {
-      if (editingCat) {
+      if (editingCat && !editingCat.isVirtual) {
         await updateDoc(doc(db, "categories", editingCat.id), formData);
         showNotification("Category updated successfully");
       } else {
         await addDoc(collection(db, "categories"), formData);
-        showNotification("Category created successfully");
+        showNotification(editingCat ? "Category converted and updated successfully" : "Category created successfully");
       }
       setIsModalOpen(false);
     } catch (err) {
@@ -93,19 +93,18 @@ const AdminCategories = () => {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (cat) => {
     if (window.confirm("Are you sure you want to delete this category? (Products inside will become uncategorized)")) {
       try {
-        await deleteDoc(doc(db, "categories", id));
+        if (!cat.isVirtual) {
+          await deleteDoc(doc(db, "categories", cat.id));
+        }
         showNotification("Category deleted successfully");
         
         // Uncategorize products that belonged to this category
-        const catToDelete = categories.find(c => c.id === id);
-        if (catToDelete) {
-          const productsToUpdate = products.filter(p => p.category === catToDelete.name);
-          for (let p of productsToUpdate) {
-             await updateDoc(doc(db, "products", p.id), { category: '' });
-          }
+        const productsToUpdate = products.filter(p => p.category === cat.name);
+        for (let p of productsToUpdate) {
+           await updateDoc(doc(db, "products", p.id), { category: '' });
         }
       } catch (err) {
         console.error("Error deleting category", err);
@@ -115,6 +114,10 @@ const AdminCategories = () => {
   };
 
   const toggleStatus = async (cat) => {
+    if (cat.isVirtual) {
+        showNotification("Virtual categories are always active. Please edit the category to save it to database first.", "error");
+        return;
+    }
     try {
       await updateDoc(doc(db, "categories", cat.id), { isEnabled: !cat.isEnabled });
       showNotification(`Category ${!cat.isEnabled ? 'activated' : 'deactivated'}`);
@@ -152,11 +155,34 @@ const AdminCategories = () => {
 
   // -------------------- DERIVED DATA --------------------
   
+  // Combine db categories and virtual categories from products
+  const allCategories = useMemo(() => {
+    const combined = [...categories];
+    const existingNames = new Set(combined.map(c => c.name.toLowerCase()));
+    
+    products.forEach(p => {
+      if (p.category && !existingNames.has(p.category.toLowerCase())) {
+        existingNames.add(p.category.toLowerCase());
+        combined.push({
+          id: 'virtual-' + p.category,
+          name: p.category,
+          isVirtual: true,
+          isEnabled: true,
+          imageUrl: ''
+        });
+      }
+    });
+    return combined;
+  }, [categories, products]);
+
   // Filter categories by search
   const filteredCategories = useMemo(() => {
-    if (!searchQuery) return categories.sort((a,b) => (a.order || 0) - (b.order || 0));
-    return categories.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()));
-  }, [categories, searchQuery]);
+    let list = allCategories;
+    if (searchQuery) {
+      list = list.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    }
+    return list.sort((a,b) => (a.order || 0) - (b.order || 0));
+  }, [allCategories, searchQuery]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredCategories.length / itemsPerPage);
@@ -215,6 +241,7 @@ const AdminCategories = () => {
         <table className="data-table">
           <thead>
             <tr>
+              <th style={{ width: '60px', textAlign: 'center' }}>S.No</th>
               <th>Category Name</th>
               <th style={{ textAlign: 'center' }}>Total Products</th>
               <th style={{ textAlign: 'center' }}>Status</th>
@@ -222,10 +249,12 @@ const AdminCategories = () => {
             </tr>
           </thead>
           <tbody>
-            {paginatedCategories.map((cat) => {
+            {paginatedCategories.map((cat, index) => {
               const productCount = products.filter(p => p.category === cat.name).length;
+              const sNo = (currentPage - 1) * itemsPerPage + index + 1;
               return (
                 <tr key={cat.id} style={{ opacity: cat.isEnabled === false ? 0.6 : 1 }}>
+                  <td style={{ textAlign: 'center', fontWeight: '500', color: 'var(--text-muted)' }}>{sNo}</td>
                   <td>
                     <div className="flex items-center gap-3">
                       <div style={{ width: '48px', height: '48px', borderRadius: '8px', backgroundColor: 'var(--bg-color)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-light)' }}>
@@ -233,6 +262,7 @@ const AdminCategories = () => {
                       </div>
                       <div>
                         <span className="font-semibold text-primary block">{cat.name}</span>
+                        {cat.isVirtual && <span className="text-xs" style={{ color: 'var(--info)', background: 'var(--bg-color)', padding: '2px 6px', borderRadius: '4px' }}>Auto-generated</span>}
                         {cat.description && <span className="text-muted text-xs line-clamp-1">{cat.description}</span>}
                       </div>
                     </div>
@@ -249,12 +279,15 @@ const AdminCategories = () => {
                   </td>
                   <td style={{ textAlign: 'right' }}>
                     <button onClick={() => handleOpenManageProducts(cat)} className="btn-secondary" style={{ marginRight: '0.5rem', fontSize: '0.85rem' }}>
-                      <Package size={16} /> Manage Products
+                      <Package size={16} /> View Products
                     </button>
-                    <button onClick={() => handleOpenModal(cat)} style={{ background: 'none', border: 'none', color: 'var(--info)', cursor: 'pointer', padding: '0.5rem' }} title="Edit">
+                    <button onClick={() => navigate('/products/add', { state: { prefillCategory: cat.name } })} className="btn-secondary" style={{ marginRight: '0.5rem', fontSize: '0.85rem' }} title="Add Product">
+                      <Plus size={16} /> Add Product
+                    </button>
+                    <button onClick={() => handleOpenModal(cat)} style={{ background: 'none', border: 'none', color: 'var(--info)', cursor: 'pointer', padding: '0.5rem' }} title="Edit Category">
                       <Edit2 size={18} />
                     </button>
-                    <button onClick={() => handleDelete(cat.id)} style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: '0.5rem' }} title="Delete">
+                    <button onClick={() => handleDelete(cat)} style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: '0.5rem' }} title="Delete Category">
                       <Trash2 size={18} />
                     </button>
                   </td>
@@ -346,7 +379,7 @@ const AdminCategories = () => {
             {/* Modal Header */}
             <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface-color)' }}>
               <div>
-                <h2 style={{ margin: '0 0 0.25rem 0' }}>Manage Products</h2>
+                <h2 style={{ margin: '0 0 0.25rem 0' }}>View Products</h2>
                 <p className="text-muted text-sm m-0">Category: <strong style={{ color: 'var(--primary)' }}>{managingCategory.name}</strong></p>
               </div>
               <button onClick={() => setIsManageProductsOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={24}/></button>
@@ -413,7 +446,12 @@ const AdminCategories = () => {
                       <img src={p.images?.[0] || '/placeholder.png'} alt={p.title} style={{ width: '56px', height: '56px', borderRadius: '8px', objectFit: 'cover', marginRight: '1rem' }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <h4 className="line-clamp-1" style={{ margin: '0 0 0.25rem 0', fontSize: '0.95rem' }}>{p.title}</h4>
-                        <span className="text-muted text-xs">&#8377;{p.price}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span className="text-muted text-xs">&#8377;{p.price}</span>
+                          <span className="text-xs" style={{ background: p.isEnabled === false ? '#DC2626' : '#10B981', color: 'white', padding: '2px 6px', borderRadius: '4px' }}>
+                            {p.isEnabled === false ? 'Inactive' : 'Active'}
+                          </span>
+                        </div>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginLeft: '1rem' }}>
                         <button onClick={() => navigate(`/products/edit/${p.id}`)} style={{ background: 'none', border: 'none', color: 'var(--info)', cursor: 'pointer', padding: '0.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Edit Product">
