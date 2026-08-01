@@ -242,6 +242,7 @@ const AdminCategories = () => {
           <thead>
             <tr>
               <th style={{ width: '60px', textAlign: 'center' }}>S.No</th>
+              <th style={{ width: '80px', textAlign: 'center' }}>Image</th>
               <th>Category Name</th>
               <th style={{ textAlign: 'center' }}>Total Products</th>
               <th style={{ textAlign: 'center' }}>Status</th>
@@ -250,21 +251,24 @@ const AdminCategories = () => {
           </thead>
           <tbody>
             {paginatedCategories.map((cat, index) => {
-              const productCount = products.filter(p => p.category === cat.name).length;
+              const catProducts = products.filter(p => p.category === cat.name);
+              const productCount = catProducts.length;
+              const fallbackImage = catProducts.length > 0 && catProducts[0].images?.length > 0 ? catProducts[0].images[0] : null;
+              const displayImage = cat.imageUrl || fallbackImage;
               const sNo = (currentPage - 1) * itemsPerPage + index + 1;
               return (
                 <tr key={cat.id} style={{ opacity: cat.isEnabled === false ? 0.6 : 1 }}>
                   <td style={{ textAlign: 'center', fontWeight: '500', color: 'var(--text-muted)' }}>{sNo}</td>
+                  <td style={{ textAlign: 'center' }}>
+                    <div style={{ width: '56px', height: '56px', borderRadius: '8px', backgroundColor: 'var(--bg-color)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-light)', margin: '0 auto' }}>
+                      {displayImage ? <img src={displayImage} alt={cat.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ImageIcon size={20} className="text-muted" />}
+                    </div>
+                  </td>
                   <td>
-                    <div className="flex items-center gap-3">
-                      <div style={{ width: '48px', height: '48px', borderRadius: '8px', backgroundColor: 'var(--bg-color)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-light)' }}>
-                        {cat.imageUrl ? <img src={cat.imageUrl} alt={cat.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ImageIcon size={20} className="text-muted" />}
-                      </div>
-                      <div>
-                        <span className="font-semibold text-primary block">{cat.name}</span>
-                        {cat.isVirtual && <span className="text-xs" style={{ color: 'var(--info)', background: 'var(--bg-color)', padding: '2px 6px', borderRadius: '4px' }}>Auto-generated</span>}
-                        {cat.description && <span className="text-muted text-xs line-clamp-1">{cat.description}</span>}
-                      </div>
+                    <div>
+                      <span className="font-semibold text-primary block">{cat.name}</span>
+                      {cat.isVirtual && <span className="text-xs" style={{ color: 'var(--info)', background: 'var(--bg-color)', padding: '2px 6px', borderRadius: '4px', display: 'inline-block', marginTop: '4px' }}>Auto-generated</span>}
+                      {cat.description && <span className="text-muted text-xs line-clamp-1 mt-1">{cat.description}</span>}
                     </div>
                   </td>
                   <td style={{ textAlign: 'center' }}>
@@ -278,24 +282,30 @@ const AdminCategories = () => {
                     </button>
                   </td>
                   <td style={{ textAlign: 'right' }}>
-                    <button onClick={() => handleOpenManageProducts(cat)} className="btn-secondary" style={{ marginRight: '0.5rem', fontSize: '0.85rem' }}>
-                      <Package size={16} /> View Products
-                    </button>
-                    <button onClick={() => navigate('/products/add', { state: { prefillCategory: cat.name } })} className="btn-secondary" style={{ marginRight: '0.5rem', fontSize: '0.85rem' }} title="Add Product">
-                      <Plus size={16} /> Add Product
-                    </button>
-                    <button onClick={() => handleOpenModal(cat)} style={{ background: 'none', border: 'none', color: 'var(--info)', cursor: 'pointer', padding: '0.5rem' }} title="Edit Category">
-                      <Edit2 size={18} />
-                    </button>
-                    <button onClick={() => handleDelete(cat)} style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: '0.5rem' }} title="Delete Category">
-                      <Trash2 size={18} />
-                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-end' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '140px' }}>
+                        <button onClick={() => handleOpenManageProducts(cat)} className="btn-secondary" style={{ fontSize: '0.8rem', width: '100%', justifyContent: 'center', padding: '0.5rem' }}>
+                          <Package size={14} style={{ marginRight: '6px' }} /> View Products
+                        </button>
+                        <button onClick={() => navigate('/products/add', { state: { prefillCategory: cat.name } })} className="btn-secondary" style={{ fontSize: '0.8rem', width: '100%', justifyContent: 'center', padding: '0.5rem' }} title="Add Product">
+                          <Plus size={14} style={{ marginRight: '6px' }} /> Add Product
+                        </button>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', width: '140px' }}>
+                        <button onClick={() => handleOpenModal(cat)} className="btn-secondary" style={{ flex: 1, padding: '0.4rem', justifyContent: 'center', color: 'var(--info)' }} title="Edit Category">
+                          <Edit2 size={16} />
+                        </button>
+                        <button onClick={() => handleDelete(cat)} className="btn-secondary" style={{ flex: 1, padding: '0.4rem', justifyContent: 'center', color: 'var(--error)' }} title="Delete Category">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
                   </td>
                 </tr>
               );
             })}
             {paginatedCategories.length === 0 && (
-              <tr><td colSpan="4" className="text-center text-muted" style={{ padding: '3rem' }}>No categories found.</td></tr>
+              <tr><td colSpan="6" className="text-center text-muted" style={{ padding: '3rem' }}>No categories found.</td></tr>
             )}
           </tbody>
         </table>
@@ -350,16 +360,24 @@ const AdminCategories = () => {
                 <label>Category Image (Optional)</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
                   <div style={{ width: '80px', height: '80px', borderRadius: '8px', border: '1px dashed var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: 'var(--bg-color)' }}>
-                    {formData.imageUrl ? <img src={formData.imageUrl} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ImageIcon size={24} className="text-muted" />}
+                    {(() => {
+                      const editCatProducts = formData.name ? products.filter(p => p.category === formData.name) : [];
+                      const fbImg = editCatProducts.length > 0 && editCatProducts[0].images?.length > 0 ? editCatProducts[0].images[0] : null;
+                      const dispImg = formData.imageUrl || fbImg;
+                      return dispImg ? <img src={dispImg} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ImageIcon size={24} className="text-muted" />;
+                    })()}
                   </div>
                   <label className="btn-secondary" style={{ cursor: 'pointer' }}>
                     Upload Image
                     <input type="file" accept="image/*" onChange={handleImageFileUpload} style={{ display: 'none' }} />
                   </label>
                   {formData.imageUrl && (
-                    <button type="button" onClick={() => setFormData({...formData, imageUrl: ''})} style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', fontSize: '0.85rem' }}>Remove</button>
+                    <button type="button" onClick={() => setFormData({...formData, imageUrl: ''})} style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', fontSize: '0.85rem' }}>Remove Custom Image</button>
                   )}
                 </div>
+                {!formData.imageUrl && formData.name && products.filter(p => p.category === formData.name).length > 0 && (
+                  <p className="text-muted text-xs mt-2">Currently using a product image as thumbnail.</p>
+                )}
               </div>
 
               <div className="flex justify-end gap-3 pt-4" style={{ borderTop: '1px solid var(--border-light)' }}>
