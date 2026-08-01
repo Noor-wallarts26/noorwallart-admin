@@ -4,7 +4,7 @@ import { ShopContext } from '../context/ShopContext';
 import { 
   LayoutDashboard, ShoppingCart, Package, FolderTree, Users, 
   DollarSign, CreditCard, Phone, Settings, Ticket, Star, 
-  Bell, FileText, BarChart, User, LogOut, Menu, Search, X 
+  Bell, FileText, BarChart, User, LogOut, Menu, Search, X
 } from 'lucide-react';
 import { isRateLimited } from '../utils/security';
 import './Admin.css';

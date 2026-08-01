@@ -1,14 +1,37 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { ShopContext } from '../context/ShopContext';
-import { MessageCircle, Mail, Hash as Instagram, Hash as Facebook, Store, Settings, CreditCard, Shield, Globe, MapPin, Clock, Truck, FileText, Image as ImageIcon, UploadCloud, Trash2, Key, Lock, Eye, EyeOff } from 'lucide-react';
+import { MessageCircle, Mail, Hash as Instagram, Hash as Facebook, Store, Settings, CreditCard, Shield, Globe, MapPin, Clock, Truck, FileText, Image as ImageIcon, UploadCloud, Trash2, Key, Lock, Eye, EyeOff, Plus, Edit, X, ArrowUp, ArrowDown, ExternalLink } from 'lucide-react';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 const AdminSettings = () => {
-  const { isPinVerified, verifyPin, sendPinResetLink } = useContext(ShopContext);
+  const { isPinVerified, verifyPin, sendPinResetLink, banners, categories } = useContext(ShopContext);
   const [activeTab, setActiveTab] = useState('general');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Banners State
+  const [isBannerModalOpen, setIsBannerModalOpen] = useState(false);
+  const [editingBanner, setEditingBanner] = useState(null);
+  const [bannerSaving, setBannerSaving] = useState(false);
+  const [bannerUploadProgress, setBannerUploadProgress] = useState(0);
+  
+  const [bannerFormData, setBannerFormData] = useState({
+    title: '',
+    description: '',
+    imageURL: '',
+    category: 'All', 
+    isActive: true,
+    showOnHomepage: true,
+    enableAutoSlider: true,
+    link: ''
+  });
+
+  const [bannerImageFile, setBannerImageFile] = useState(null);
+  const [bannerPreviewURL, setBannerPreviewURL] = useState('');
+
+  const sortedBanners = [...banners].sort((a, b) => (a.order || 0) - (b.order || 0));
 
   // PIN Protection State for Payment Settings
   const [isPaymentUnlocked, setIsPaymentUnlocked] = useState(false);
@@ -110,6 +133,156 @@ const AdminSettings = () => {
     }
   };
 
+  // Banner Handlers
+  const handleOpenBannerModal = (banner = null) => {
+    setEditingBanner(banner);
+    if (banner) {
+      setBannerFormData({
+        title: banner.title || '',
+        description: banner.description || '',
+        imageURL: banner.imageURL || '',
+        category: banner.category || 'All',
+        isActive: banner.isActive !== false,
+        showOnHomepage: banner.showOnHomepage !== false,
+        enableAutoSlider: banner.enableAutoSlider !== false,
+        link: banner.link || ''
+      });
+      setBannerPreviewURL(banner.imageURL || '');
+    } else {
+      setBannerFormData({
+        title: '',
+        description: '',
+        imageURL: '',
+        category: 'All',
+        isActive: true,
+        showOnHomepage: true,
+        enableAutoSlider: true,
+        link: ''
+      });
+      setBannerPreviewURL('');
+    }
+    setBannerImageFile(null);
+    setBannerUploadProgress(0);
+    setIsBannerModalOpen(true);
+  };
+
+  const handleBannerImageChange = (e) => {
+    if (e.target.files[0]) {
+      const file = e.target.files[0];
+      setBannerImageFile(file);
+      setBannerPreviewURL(URL.createObjectURL(file));
+    }
+  };
+
+  const uploadBannerImage = async (file) => {
+    return new Promise((resolve, reject) => {
+      const storage = getStorage();
+      const storageRef = ref(storage, `banners/${Date.now()}_${file.name}`);
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      uploadTask.on(
+        'state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setBannerUploadProgress(progress);
+        },
+        (error) => {
+          console.error("Upload error:", error);
+          reject(error);
+        },
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          resolve(downloadURL);
+        }
+      );
+    });
+  };
+
+  const handleBannerSubmit = async (e) => {
+    e.preventDefault();
+    setBannerSaving(true);
+    try {
+      let finalImageURL = bannerFormData.imageURL;
+      
+      if (bannerImageFile) {
+        finalImageURL = await uploadBannerImage(bannerImageFile);
+      }
+
+      if (!finalImageURL) {
+        alert('Please select a banner image');
+        setBannerSaving(false);
+        return;
+      }
+
+      const bannerDataToSave = {
+        ...bannerFormData,
+        imageURL: finalImageURL,
+        updatedAt: Date.now()
+      };
+
+      if (editingBanner) {
+        await updateDoc(doc(db, "banners", editingBanner.id), bannerDataToSave);
+      } else {
+        const maxOrder = banners.length > 0 ? Math.max(...banners.map(b => b.order || 0)) : 0;
+        await addDoc(collection(db, "banners"), {
+          ...bannerDataToSave,
+          order: maxOrder + 1,
+          createdAt: Date.now()
+        });
+      }
+
+      setIsBannerModalOpen(false);
+    } catch (err) {
+      console.error("Error saving banner:", err);
+      alert("Failed to save banner");
+    } finally {
+      setBannerSaving(false);
+    }
+  };
+
+  const handleDeleteBanner = async (id) => {
+    if (window.confirm("Are you sure you want to delete this banner?")) {
+      try {
+        await deleteDoc(doc(db, "banners", id));
+      } catch (err) {
+        console.error("Error deleting banner:", err);
+        alert("Failed to delete banner");
+      }
+    }
+  };
+
+  const handleMoveBanner = async (index, direction) => {
+    if (
+      (direction === 'up' && index === 0) || 
+      (direction === 'down' && index === sortedBanners.length - 1)
+    ) {
+      return;
+    }
+
+    const currentBanner = sortedBanners[index];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    const swapBanner = sortedBanners[targetIndex];
+
+    try {
+      const currentOrder = currentBanner.order || index;
+      const swapOrder = swapBanner.order || targetIndex;
+      
+      await updateDoc(doc(db, "banners", currentBanner.id), { order: swapOrder });
+      await updateDoc(doc(db, "banners", swapBanner.id), { order: currentOrder });
+    } catch (err) {
+      console.error("Error reordering banners:", err);
+      alert("Failed to reorder banners");
+    }
+  };
+
+  const toggleBannerStatus = async (banner) => {
+    try {
+      await updateDoc(doc(db, "banners", banner.id), { isActive: !banner.isActive });
+    } catch (err) {
+      console.error("Error toggling status:", err);
+    }
+  };
+
   if (loading) return <div className="p-8 text-muted">Loading settings...</div>;
 
   return (
@@ -186,30 +359,92 @@ const AdminSettings = () => {
                   )}
                 </div>
 
-                {/* HOMEPAGE BANNER IMAGE UPLOAD */}
-                <div className="form-group" style={{ marginTop: '1.5rem', padding: '1rem', border: '1px solid var(--border-light)', borderRadius: '8px' }}>
-                  <label style={{ fontWeight: 600, display: 'block', marginBottom: '0.5rem' }}>Homepage Banner</label>
-                  {settings.homepageBannerUrl ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                      <img src={settings.homepageBannerUrl} alt="Homepage Banner" style={{ width: '100%', maxHeight: '180px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--border-light)' }} />
-                      <div style={{ display: 'flex', gap: '0.75rem' }}>
-                        <label className="btn-outline" style={{ cursor: 'pointer', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <UploadCloud size={16} /> Replace Banner
-                          <input type="file" accept="image/*" onChange={(e) => handleImageFileUpload(e, 'homepageBannerUrl')} style={{ display: 'none' }} />
-                        </label>
-                        <button type="button" className="btn-secondary" style={{ color: '#DC2626', display: 'flex', alignItems: 'center', gap: '0.5rem' }} onClick={() => handleChange('homepageBannerUrl', '')}>
-                          <Trash2 size={16} /> Delete Banner
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', border: '2px dashed var(--border-light)', borderRadius: '8px', cursor: 'pointer' }}>
-                      <ImageIcon size={32} className="text-muted mb-2" />
-                      <span className="text-sm font-medium">Click to Upload Homepage Banner</span>
-                      <span className="text-xs text-muted mt-1">Recommended size: 1200x400px</span>
-                      <input type="file" accept="image/*" onChange={(e) => handleImageFileUpload(e, 'homepageBannerUrl')} style={{ display: 'none' }} />
-                    </label>
-                  )}
+                {/* HOMEPAGE BANNER MANAGEMENT */}
+                <div className="form-group" style={{ marginTop: '2.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.125rem' }}>Homepage Banners</h3>
+                    <button type="button" className="btn-primary" onClick={() => handleOpenBannerModal()} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
+                      <Plus size={16} /> Add New Homepage Banner
+                    </button>
+                  </div>
+                  <p className="text-sm text-muted" style={{ marginBottom: '1.5rem' }}>
+                    Create unlimited banners. If you create more than one, they will automatically appear in a slider on the homepage.
+                  </p>
+
+                  <div className="table-responsive" style={{ border: '1px solid var(--border-light)', borderRadius: '8px' }}>
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Order</th>
+                          <th>Banner</th>
+                          <th>Details</th>
+                          <th>Location</th>
+                          <th>Status</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sortedBanners.length > 0 ? (
+                          sortedBanners.map((banner, index) => (
+                            <tr key={banner.id}>
+                              <td>
+                                <div className="flex flex-col gap-1 items-center justify-center">
+                                  <button type="button" className="btn-icon" onClick={() => handleMoveBanner(index, 'up')} disabled={index === 0} style={{ padding: '4px', opacity: index === 0 ? 0.3 : 1 }}>
+                                    <ArrowUp size={16} />
+                                  </button>
+                                  <span className="text-muted text-sm font-medium">{index + 1}</span>
+                                  <button type="button" className="btn-icon" onClick={() => handleMoveBanner(index, 'down')} disabled={index === sortedBanners.length - 1} style={{ padding: '4px', opacity: index === sortedBanners.length - 1 ? 0.3 : 1 }}>
+                                    <ArrowDown size={16} />
+                                  </button>
+                                </div>
+                              </td>
+                              <td>
+                                <div style={{ width: '100px', height: '50px', borderRadius: '6px', overflow: 'hidden', backgroundColor: 'var(--bg-color)', border: '1px solid var(--border-light)' }}>
+                                  {banner.imageURL ? (
+                                    <img src={banner.imageURL} alt={banner.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  ) : (
+                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                      <ImageIcon size={20} color="var(--text-muted)" />
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                              <td>
+                                <div className="font-medium text-sm">{banner.title || 'Untitled'}</div>
+                                {banner.showOnHomepage && <span className="text-xs text-primary" style={{ display: 'inline-block', marginTop: '2px', backgroundColor: '#EFF6FF', padding: '2px 6px', borderRadius: '4px' }}>Shows on Homepage</span>}
+                              </td>
+                              <td>
+                                <span className="status-badge" style={{ backgroundColor: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}>
+                                  {banner.category === 'All' ? 'All Categories' : categories.find(c => c.id === banner.category)?.name || banner.category}
+                                </span>
+                              </td>
+                              <td>
+                                <button type="button" onClick={() => toggleBannerStatus(banner)} className={`status-badge ${banner.isActive !== false ? 'delivered' : 'cancelled'}`} style={{ cursor: 'pointer', border: 'none' }}>
+                                  {banner.isActive !== false ? 'Active' : 'Disabled'}
+                                </button>
+                              </td>
+                              <td>
+                                <div className="flex gap-2">
+                                  <button type="button" className="btn-icon" onClick={() => handleOpenBannerModal(banner)} title="Edit Banner">
+                                    <Edit size={16} />
+                                  </button>
+                                  <button type="button" className="btn-icon text-danger" onClick={() => handleDeleteBanner(banner.id)} title="Delete Banner">
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="6" className="text-center text-muted" style={{ padding: '2rem' }}>
+                              No banners added yet. Add a banner to display it on your website.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             )}
@@ -411,6 +646,132 @@ const AdminSettings = () => {
           </form>
         </div>
       </div>
+
+      {/* Banner Modal */}
+      {isBannerModalOpen && (
+        <div className="modal-overlay" onClick={() => !bannerSaving && setIsBannerModalOpen(false)} style={{ zIndex: 9999 }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+            <div className="modal-header">
+              <h2>{editingBanner ? 'Edit Banner' : 'Add New Homepage Banner'}</h2>
+              <button className="btn-icon" onClick={() => !bannerSaving && setIsBannerModalOpen(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleBannerSubmit} className="modal-body">
+              <div className="form-group">
+                <label>Banner Image Upload *</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'flex-start' }}>
+                  {bannerPreviewURL && (
+                    <div style={{ width: '100%', height: '150px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-light)' }}>
+                      <img src={bannerPreviewURL} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                  )}
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={handleBannerImageChange}
+                    style={{ fontSize: '0.9rem' }}
+                  />
+                  {bannerUploadProgress > 0 && bannerUploadProgress < 100 && (
+                    <div style={{ width: '100%', backgroundColor: 'var(--bg-color)', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{ height: '4px', backgroundColor: 'var(--primary)', width: `${bannerUploadProgress}%`, transition: 'width 0.2s' }}></div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Banner Title</label>
+                <input 
+                  type="text" 
+                  value={bannerFormData.title} 
+                  onChange={(e) => setBannerFormData({...bannerFormData, title: e.target.value})}
+                  placeholder="Large Bold Title"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Banner Description</label>
+                <textarea 
+                  value={bannerFormData.description} 
+                  onChange={(e) => setBannerFormData({...bannerFormData, description: e.target.value})}
+                  placeholder="Small Description below the title"
+                  rows="2"
+                />
+              </div>
+              
+              <div className="form-group">
+                <label>Target Link (Optional)</label>
+                <input 
+                  type="text" 
+                  value={bannerFormData.link} 
+                  onChange={(e) => setBannerFormData({...bannerFormData, link: e.target.value})}
+                  placeholder="e.g. /shop or /product/123"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Category Selection</label>
+                <select 
+                  value={bannerFormData.category} 
+                  onChange={(e) => setBannerFormData({...bannerFormData, category: e.target.value})}
+                >
+                  <option value="All">All Categories</option>
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+                <small className="text-muted">Display banner when users browse this specific category.</small>
+              </div>
+
+              <div className="form-row" style={{ marginTop: '1rem' }}>
+                <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <input 
+                    type="checkbox" 
+                    id="showOnHomepage" 
+                    checked={bannerFormData.showOnHomepage} 
+                    onChange={(e) => setBannerFormData({...bannerFormData, showOnHomepage: e.target.checked})}
+                    style={{ width: 'auto' }}
+                  />
+                  <label htmlFor="showOnHomepage" style={{ margin: 0, cursor: 'pointer' }}>Show on Homepage</label>
+                </div>
+                
+                <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <input 
+                    type="checkbox" 
+                    id="enableAutoSlider" 
+                    checked={bannerFormData.enableAutoSlider} 
+                    onChange={(e) => setBannerFormData({...bannerFormData, enableAutoSlider: e.target.checked})}
+                    style={{ width: 'auto' }}
+                  />
+                  <label htmlFor="enableAutoSlider" style={{ margin: 0, cursor: 'pointer' }}>Enable Auto Slider</label>
+                </div>
+                
+                <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <input 
+                    type="checkbox" 
+                    id="isActiveBanner" 
+                    checked={bannerFormData.isActive} 
+                    onChange={(e) => setBannerFormData({...bannerFormData, isActive: e.target.checked})}
+                    style={{ width: 'auto' }}
+                  />
+                  <label htmlFor="isActiveBanner" style={{ margin: 0, cursor: 'pointer' }}>Enable Banner</label>
+                </div>
+              </div>
+
+              <div className="modal-footer" style={{ marginTop: '2rem' }}>
+                <button type="button" className="btn-secondary" onClick={() => setIsBannerModalOpen(false)} disabled={bannerSaving}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" disabled={bannerSaving}>
+                  {bannerSaving ? 'Saving...' : 'Save Banner'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

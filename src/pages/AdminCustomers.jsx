@@ -3,7 +3,7 @@ import { ShopContext } from '../context/ShopContext';
 import { Search, MapPin, Phone, Mail, ShoppingBag, MessageCircle, Gift, X, Calendar, User, ChevronRight } from 'lucide-react';
 
 const AdminCustomers = () => {
-  const { orders, products } = useContext(ShopContext);
+  const { orders, products, users = [] } = useContext(ShopContext);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Modals state
@@ -14,13 +14,48 @@ const AdminCustomers = () => {
   const customersData = useMemo(() => {
     const custMap = new Map();
 
+    // First, add all registered users
+    users.forEach(user => {
+      const key = user.phone || user.email || user.uid; // Try to use phone, fallback to email/uid
+      if (key && !custMap.has(key)) {
+        custMap.set(key, {
+          id: user.uid,
+          name: user.name || 'User',
+          phone: user.phone || 'N/A',
+          email: user.email || 'N/A',
+          address: '',
+          city: '',
+          state: '',
+          pincode: '',
+          fullAddress: 'No address provided',
+          photoURL: user.photoURL || null,
+          totalPurchase: 0,
+          orderCount: 0,
+          lastOrderDate: null,
+          firstOrderDate: user.createdAt || Date.now(),
+          orders: []
+        });
+      }
+    });
+
+    // Next, merge order history
     orders.forEach(order => {
-      if (order.customer && order.customer.phone) {
+      if (order.customer) {
         const phone = order.customer.phone;
         const orderTime = order.timestamp || order.createdAt || Date.now();
 
-        if (!custMap.has(phone)) {
+        let cust;
+        if (phone && custMap.has(phone)) {
+          cust = custMap.get(phone);
+        } else if (order.userId && custMap.has(order.userId)) {
+          // Fallback matching if userId matches (though we used phone/email as key)
+          // To be safe, if no phone match, let's just create/update based on phone
+          cust = custMap.get(phone);
+        }
+
+        if (!cust && phone) {
           custMap.set(phone, {
+            id: order.userId || phone,
             name: order.customer.name || 'Unknown',
             phone: phone,
             email: order.customer.email || 'N/A',
@@ -36,36 +71,41 @@ const AdminCustomers = () => {
             firstOrderDate: orderTime,
             orders: []
           });
+          cust = custMap.get(phone);
         }
         
-        const cust = custMap.get(phone);
-        
-        // Update total spend if valid order
-        if (['Accepted', 'Processing', 'Packed', 'Shipped', 'Delivered'].includes(order.status)) {
-          cust.totalPurchase += (order.totalPrice || 0);
-        }
-        
-        cust.orderCount += 1;
-        
-        if (orderTime > cust.lastOrderDate) {
-          cust.lastOrderDate = orderTime;
-        }
-        if (orderTime < cust.firstOrderDate) {
-          cust.firstOrderDate = orderTime;
-        }
-        
-        // Update photoURL if a newer order has it
-        if (order.customer.photoURL) {
-          cust.photoURL = order.customer.photoURL;
-        }
+        if (cust) {
+          // Update total spend if valid order
+          if (['Accepted', 'Processing', 'Packed', 'Shipped', 'Delivered'].includes(order.status)) {
+            cust.totalPurchase += (order.totalPrice || 0);
+          }
+          
+          cust.orderCount += 1;
+          
+          if (!cust.lastOrderDate || orderTime > cust.lastOrderDate) {
+            cust.lastOrderDate = orderTime;
+          }
+          if (orderTime < cust.firstOrderDate) {
+            cust.firstOrderDate = orderTime;
+          }
+          
+          // Update address/photo if we have better info from the latest order
+          if (order.customer.photoURL) cust.photoURL = order.customer.photoURL;
+          if (order.customer.address && cust.address === '') {
+            cust.address = order.customer.address;
+            cust.city = order.customer.city;
+            cust.state = order.customer.state;
+            cust.fullAddress = `${order.customer.address}, ${order.customer.city} ${order.customer.state}`;
+          }
 
-        cust.orders.push(order);
+          cust.orders.push(order);
+        }
       }
     });
 
-    // Sort by last order date
-    return Array.from(custMap.values()).sort((a, b) => b.lastOrderDate - a.lastOrderDate);
-  }, [orders]);
+    // Sort by last order date (or first order date if no orders)
+    return Array.from(custMap.values()).sort((a, b) => (b.lastOrderDate || b.firstOrderDate) - (a.lastOrderDate || a.firstOrderDate));
+  }, [orders, users]);
 
   const filteredCustomers = customersData.filter(c => 
     c.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 

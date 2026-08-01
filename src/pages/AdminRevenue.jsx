@@ -6,13 +6,18 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 const AdminRevenue = () => {
   const { orders } = useContext(ShopContext);
 
-  const { totalRevenue, lastMonthRevenue, growth, chartData } = useMemo(() => {
+  const { totalRevenue, lastMonthRevenue, pendingClearance, availableBalance, growth, chartData } = useMemo(() => {
     let total = 0;
     let lastMonth = 0;
+    let pending = 0;
+    
     const now = new Date();
     const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
+    const priorThirtyDaysAgo = new Date(now.setDate(now.getDate() - 30)); // 60 days ago
     
-    // Process orders for chart (last 7 days mock or real data)
+    let previousMonth = 0;
+
+    // Process orders for chart (last 7 days)
     const dailyData = {};
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
@@ -21,13 +26,23 @@ const AdminRevenue = () => {
     }
 
     orders.forEach(order => {
-      if (order.status !== 'Cancelled') {
-        const amount = Number(order.total || order.totalAmount || 0);
+      if (order.status !== 'Cancelled' && order.status !== 'Returned') {
+        const amount = Number(order.totalPrice || order.total || order.totalAmount || 0);
+        
+        // Total Revenue (all time successful/processing orders)
         total += amount;
         
-        const orderDate = new Date(order.createdAt || order.date);
+        const orderDate = new Date(order.timestamp || order.createdAt || order.date);
+        
         if (orderDate > thirtyDaysAgo) {
           lastMonth += amount;
+        } else if (orderDate > priorThirtyDaysAgo) {
+          previousMonth += amount;
+        }
+
+        // Pending Clearance: COD orders that are not yet Delivered/Paid, or online payments not yet settled (let's assume Shipped/Packed = pending)
+        if (order.paymentStatus === 'Pending Verification' || !['Delivered'].includes(order.status)) {
+          pending += amount;
         }
 
         const dayStr = orderDate.toLocaleDateString('en-US', { weekday: 'short' });
@@ -42,13 +57,58 @@ const AdminRevenue = () => {
       revenue: dailyData[key]
     }));
 
+    let calcGrowth = 0;
+    if (previousMonth > 0) {
+      calcGrowth = ((lastMonth - previousMonth) / previousMonth) * 100;
+    } else if (lastMonth > 0) {
+      calcGrowth = 100; // 100% growth if previous was 0
+    }
+
     return { 
       totalRevenue: total, 
       lastMonthRevenue: lastMonth,
-      growth: lastMonth > 0 ? 12.5 : 0, // Mock growth if data exists
+      pendingClearance: pending,
+      availableBalance: total - pending,
+      growth: calcGrowth.toFixed(1),
       chartData: cData
     };
   }, [orders]);
+
+  const handleDownloadCSV = () => {
+    // Generate CSV data from orders
+    if (orders.length === 0) {
+      alert("No data available to export.");
+      return;
+    }
+    
+    const headers = ['Order ID', 'Date', 'Customer Name', 'Status', 'Payment Method', 'Payment Status', 'Total Amount'];
+    const rows = orders.map(order => {
+      const date = new Date(order.timestamp || order.createdAt || Date.now()).toLocaleDateString();
+      const customer = order.customer?.name || 'Unknown';
+      const amount = order.totalPrice || order.total || 0;
+      
+      return [
+        order.id,
+        date,
+        `"${customer}"`, // Escape commas in name
+        order.status,
+        order.paymentMethod || 'N/A',
+        order.paymentStatus || 'N/A',
+        amount
+      ].join(',');
+    });
+    
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `revenue_statement_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="admin-page animate-fade-in">
@@ -57,9 +117,9 @@ const AdminRevenue = () => {
           <h1>Revenue Overview</h1>
           <p className="text-muted">Track your earnings and business growth.</p>
         </div>
-        <button className="btn-primary">
+        <button className="btn-primary" onClick={handleDownloadCSV}>
           <Download size={18} />
-          Download Statement
+          Download Statement (CSV)
         </button>
       </div>
 
@@ -71,8 +131,9 @@ const AdminRevenue = () => {
           <div className="stat-details">
             <h3>Total Revenue</h3>
             <p className="stat-value">₹{totalRevenue.toLocaleString()}</p>
-            <span className="stat-change positive">
-              <ArrowUpRight size={16} /> +{growth}%
+            <span className={`stat-change ${Number(growth) >= 0 ? 'positive' : 'negative'}`}>
+              {Number(growth) >= 0 ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />} 
+              {Math.abs(Number(growth))}%
             </span>
           </div>
         </div>
@@ -88,14 +149,27 @@ const AdminRevenue = () => {
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>
-            <ArrowDownRight size={24} />
+          <div className="stat-icon" style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}>
+            <DollarSign size={24} />
           </div>
           <div className="stat-details">
             <h3>Pending Clearances</h3>
-            <p className="stat-value">₹0</p>
+            <p className="stat-value">₹{pendingClearance.toLocaleString()}</p>
             <span className="stat-change text-muted" style={{ color: 'var(--text-muted)', backgroundColor: 'transparent', padding: 0 }}>
-              All payments cleared
+              Orders in progress
+            </span>
+          </div>
+        </div>
+        
+        <div className="stat-card">
+          <div className="stat-icon" style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#22c55e' }}>
+            <DollarSign size={24} />
+          </div>
+          <div className="stat-details">
+            <h3>Available Balance</h3>
+            <p className="stat-value">₹{availableBalance.toLocaleString()}</p>
+            <span className="stat-change text-muted" style={{ color: 'var(--text-muted)', backgroundColor: 'transparent', padding: 0 }}>
+              Completed & Settled
             </span>
           </div>
         </div>

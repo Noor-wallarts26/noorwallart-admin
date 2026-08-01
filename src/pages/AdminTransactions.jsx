@@ -12,10 +12,10 @@ const AdminTransactions = () => {
     id: `TXN-${order.id.substring(0, 8).toUpperCase()}`,
     orderId: order.id,
     customerName: order.customer?.name || 'Guest',
-    amount: order.total || order.totalAmount || 0,
-    date: order.createdAt || order.date || new Date().toISOString(),
+    amount: order.totalPrice || order.total || order.totalAmount || 0,
+    date: order.timestamp || order.createdAt || order.date || new Date().getTime(),
     method: order.paymentMethod || 'UPI / Online',
-    status: order.status === 'Cancelled' ? 'Failed' : 'Success',
+    status: order.status === 'Cancelled' || order.status === 'Returned' ? 'Failed' : 'Success',
     type: 'Credit' // All customer orders are incoming credit
   }));
 
@@ -28,6 +28,41 @@ const AdminTransactions = () => {
   });
 
   const totalCredit = filteredTransactions.filter(t => t.status === 'Success').reduce((sum, t) => sum + Number(t.amount), 0);
+  const totalFailed = filteredTransactions.filter(t => t.status === 'Failed').reduce((sum, t) => sum + Number(t.amount), 0);
+  const successCount = filteredTransactions.filter(t => t.status === 'Success').length;
+  const failedCount = filteredTransactions.filter(t => t.status === 'Failed').length;
+
+  const handleDownloadCSV = () => {
+    if (filteredTransactions.length === 0) {
+      alert("No data available to export.");
+      return;
+    }
+    
+    const headers = ['Transaction ID', 'Order ID', 'Customer Name', 'Date', 'Method', 'Status', 'Amount'];
+    const rows = filteredTransactions.map(txn => {
+      const date = new Date(txn.date).toLocaleDateString();
+      return [
+        txn.id,
+        txn.orderId,
+        `"${txn.customerName}"`,
+        date,
+        txn.method,
+        txn.status,
+        txn.amount
+      ].join(',');
+    });
+    
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `transactions_statement_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="admin-page animate-fade-in">
@@ -36,7 +71,7 @@ const AdminTransactions = () => {
           <h1>Transactions</h1>
           <p className="text-muted">Monitor all incoming payments and refunds.</p>
         </div>
-        <button className="btn-outline">
+        <button className="btn-outline" onClick={handleDownloadCSV}>
           <Download size={18} />
           Export CSV
         </button>
@@ -48,10 +83,21 @@ const AdminTransactions = () => {
             <ArrowDownRight size={24} />
           </div>
           <div className="stat-details">
-            <h3>Total Inflow</h3>
+            <h3>Total Inflow (Success)</h3>
             <p className="stat-value text-success">₹{totalCredit.toLocaleString()}</p>
           </div>
         </div>
+        
+        <div className="stat-card">
+          <div className="stat-icon" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>
+            <ArrowUpRight size={24} />
+          </div>
+          <div className="stat-details">
+            <h3>Total Outflow / Failed</h3>
+            <p className="stat-value text-danger" style={{ color: '#ef4444' }}>₹{totalFailed.toLocaleString()}</p>
+          </div>
+        </div>
+
         <div className="stat-card">
           <div className="stat-icon" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' }}>
             <CreditCard size={24} />
@@ -59,6 +105,9 @@ const AdminTransactions = () => {
           <div className="stat-details">
             <h3>Total Transactions</h3>
             <p className="stat-value">{filteredTransactions.length}</p>
+            <span className="stat-change text-muted" style={{ color: 'var(--text-muted)', backgroundColor: 'transparent', padding: 0 }}>
+              {successCount} Success, {failedCount} Failed
+            </span>
           </div>
         </div>
       </div>

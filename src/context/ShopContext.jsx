@@ -65,6 +65,37 @@ export const AdminProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
+  const [users, setUsers] = useState([]);
+  const [banners, setBanners] = useState([]);
+
+  // Fetch users
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "users"), (snapshot) => {
+      const usersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setUsers(usersData);
+    }, (error) => {
+      console.error("Error fetching users: ", error);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch banners
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "banners"), (snapshot) => {
+      const bannersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setBanners(bannersData);
+    }, (error) => {
+      console.error("Error fetching banners: ", error);
+    });
+    return () => unsubscribe();
+  }, []);
+
   // Admin PIN Security State (Default PIN: 252007)
   const [adminPin, setAdminPin] = useState(() => localStorage.getItem('admin_pin') || '252007');
   const [isPinVerified, setIsPinVerified] = useState(false);
@@ -152,6 +183,8 @@ export const AdminProvider = ({ children }) => {
 
   return (
     <ShopContext.Provider value={{
+      users,
+      banners,
       products,
       orders,
       categories,
