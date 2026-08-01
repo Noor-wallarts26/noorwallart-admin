@@ -9,7 +9,7 @@ const AdminProductForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { id } = useParams();
-  const { products } = useContext(ShopContext);
+  const { products, categories } = useContext(ShopContext);
   
   const existingProduct = location.state?.product || (id ? products.find(p => p.id === id) : null);
 
@@ -22,7 +22,7 @@ const AdminProductForm = () => {
     sku: existingProduct?.sku || '',
     regularPrice: existingProduct?.regularPrice || '',
     offerPrice: existingProduct?.offerPrice || existingProduct?.price || '',
-    category: existingProduct?.category || 'Islamic wall arts',
+    category: existingProduct?.category || location.state?.prefillCategory || '',
     stock: existingProduct?.stock || '',
     deliveryCharge: existingProduct?.deliveryCharge !== undefined ? existingProduct.deliveryCharge : 80,
     description: existingProduct?.description || '',
@@ -318,17 +318,10 @@ const AdminProductForm = () => {
             <div className="form-group">
               <label>Category</label>
               <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                <option>Islamic wall arts</option>
-                <option>Customized Frames</option>
-                <option>Wedding and nikkah collections</option>
-                <option>Customized Gifts</option>
-                <option>Acrylic & Glass works</option>
-                <option>Home decor</option>
-                <option>Wall stickers & Decals</option>
-                <option>Custom printing</option>
-                <option>Corporate and event products</option>
-                <option>Personalized products</option>
-                <option>Resin Arts</option>
+                <option value="">Select Category</option>
+                {categories && categories.sort((a,b) => (a.order || 0) - (b.order || 0)).map(cat => (
+                  <option key={cat.id} value={cat.name}>{cat.name}</option>
+                ))}
               </select>
             </div>
             
