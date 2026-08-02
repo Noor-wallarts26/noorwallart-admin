@@ -58,7 +58,7 @@ const AdminOrders = () => {
           <div class="header">
             <div>
               <div class="logo">Noor Wall Arts</div>
-              <p>Email: support@noorwallarts.com<br>Phone: +91 89253 25330</p>
+              <p>Email: support@noorkarts.in<br>Phone: +91 89253 25330</p>
             </div>
             <div class="invoice-details">
               <h2>INVOICE</h2>

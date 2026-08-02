@@ -132,7 +132,7 @@ const AdminCustomers = () => {
     if (phone.length === 10) phone = '91' + phone;
 
     // Use current origin for links. If production domain is known, could hardcode it.
-    const productUrl = `https://noorwallarts.com/product/${product.id}`;
+    const productUrl = `https://noorkarts.in/product/${product.id}`;
     const priceText = product.discount ? `₹${product.price} (Original: ₹${product.discount})` : `₹${product.price}`;
     
     const message = `Hi ${customer.name}! 🎉\n\nWe have an exclusive offer just for you!\n\n*${product.title}*\nPrice: ${priceText}\n\nCheck it out here:\n${productUrl}\n\nLet us know if you'd like to place an order!`;
