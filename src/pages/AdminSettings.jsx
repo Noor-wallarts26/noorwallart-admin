@@ -25,7 +25,8 @@ const AdminSettings = () => {
     isActive: true,
     showOnHomepage: true,
     enableAutoSlider: true,
-    link: ''
+    link: '',
+    mediaType: 'image'
   });
 
   const [bannerImageFile, setBannerImageFile] = useState(null);
@@ -145,7 +146,8 @@ const AdminSettings = () => {
         isActive: banner.isActive !== false,
         showOnHomepage: banner.showOnHomepage !== false,
         enableAutoSlider: banner.enableAutoSlider !== false,
-        link: banner.link || ''
+        link: banner.link || '',
+        mediaType: banner.mediaType || 'image'
       });
       setBannerPreviewURL(banner.imageURL || '');
     } else {
@@ -157,7 +159,8 @@ const AdminSettings = () => {
         isActive: true,
         showOnHomepage: true,
         enableAutoSlider: true,
-        link: ''
+        link: '',
+        mediaType: 'image'
       });
       setBannerPreviewURL('');
     }
@@ -171,6 +174,8 @@ const AdminSettings = () => {
       const file = e.target.files[0];
       setBannerImageFile(file);
       setBannerPreviewURL(URL.createObjectURL(file));
+      const isVideo = file.type.startsWith('video/');
+      setBannerFormData(prev => ({ ...prev, mediaType: isVideo ? 'video' : 'image' }));
     }
   };
 
@@ -401,7 +406,11 @@ const AdminSettings = () => {
                               <td>
                                 <div style={{ width: '100px', height: '50px', borderRadius: '6px', overflow: 'hidden', backgroundColor: 'var(--bg-color)', border: '1px solid var(--border-light)' }}>
                                   {banner.imageURL ? (
-                                    <img src={banner.imageURL} alt={banner.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    banner.mediaType === 'video' ? (
+                                      <video src={banner.imageURL} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
+                                    ) : (
+                                      <img src={banner.imageURL} alt={banner.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    )
                                   ) : (
                                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                       <ImageIcon size={20} color="var(--text-muted)" />
@@ -664,12 +673,16 @@ const AdminSettings = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'flex-start' }}>
                   {bannerPreviewURL && (
                     <div style={{ width: '100%', height: '150px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-light)' }}>
-                      <img src={bannerPreviewURL} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      {bannerFormData.mediaType === 'video' ? (
+                        <video src={bannerPreviewURL} style={{ width: '100%', height: '100%', objectFit: 'cover' }} controls muted />
+                      ) : (
+                        <img src={bannerPreviewURL} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      )}
                     </div>
                   )}
                   <input 
                     type="file" 
-                    accept="image/*" 
+                    accept="image/*, video/mp4, video/webm" 
                     onChange={handleBannerImageChange}
                     style={{ fontSize: '0.9rem' }}
                   />
