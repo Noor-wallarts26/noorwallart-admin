@@ -386,43 +386,73 @@ const AdminSettings = () => {
                       <div style={{ width: '100%', maxWidth: '400px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-light)' }}>
                         <video src={settings.homepageVideoUrl} autoPlay loop muted playsInline style={{ width: '100%', height: 'auto', display: 'block' }} />
                       </div>
+                      
+                      {bannerSaving && bannerUploadProgress > 0 && bannerUploadProgress < 100 && (
+                        <div style={{ width: '100%', maxWidth: '400px', marginTop: '0.5rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                            <span>Uploading Video...</span>
+                            <span>{Math.round(bannerUploadProgress)}%</span>
+                          </div>
+                          <div style={{ width: '100%', backgroundColor: 'var(--bg-color)', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{ height: '6px', backgroundColor: 'var(--primary)', width: `${bannerUploadProgress}%`, transition: 'width 0.2s' }}></div>
+                          </div>
+                        </div>
+                      )}
+
                       <div style={{ display: 'flex', gap: '0.75rem' }}>
-                        <label className="btn-outline" style={{ cursor: 'pointer', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <UploadCloud size={16} /> Replace Video
-                          <input type="file" accept="video/*" onChange={async (e) => {
+                        <label className="btn-outline" style={{ cursor: bannerSaving ? 'not-allowed' : 'pointer', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: bannerSaving ? 0.6 : 1 }}>
+                          <UploadCloud size={16} /> {bannerSaving ? 'Uploading...' : 'Replace Video'}
+                          <input type="file" accept="video/*" disabled={bannerSaving} onChange={async (e) => {
                             if (e.target.files[0]) {
-                              setSaving(true);
+                              setBannerSaving(true);
                               try {
                                 const url = await uploadBannerImage(e.target.files[0]);
                                 handleChange('homepageVideoUrl', url);
+                                // Auto-save for convenience so they don't have to click save manually
+                                await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: url }, { merge: true });
                               } catch (err) {
                                 alert("Failed to upload video");
                               } finally {
-                                setSaving(false);
+                                setBannerSaving(false);
                               }
                             }
                           }} style={{ display: 'none' }} />
                         </label>
-                        <button type="button" className="btn-secondary" style={{ color: '#DC2626', display: 'flex', alignItems: 'center', gap: '0.5rem' }} onClick={() => handleChange('homepageVideoUrl', '')}>
+                        <button type="button" className="btn-secondary" disabled={bannerSaving} style={{ color: '#DC2626', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: bannerSaving ? 0.6 : 1 }} onClick={() => handleChange('homepageVideoUrl', '')}>
                           <Trash2 size={16} /> Remove Video
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem', border: '2px dashed var(--border-light)', borderRadius: '8px', cursor: 'pointer', backgroundColor: 'var(--bg-color)' }}>
+                    <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem', border: '2px dashed var(--border-light)', borderRadius: '8px', cursor: bannerSaving ? 'not-allowed' : 'pointer', backgroundColor: 'var(--bg-color)', opacity: bannerSaving ? 0.6 : 1 }}>
                       <UploadCloud size={32} className="text-muted mb-2" />
-                      <span className="text-sm font-medium">Click to Upload Video Banner</span>
+                      <span className="text-sm font-medium">{bannerSaving ? 'Uploading Video...' : 'Click to Upload Video Banner'}</span>
                       <span className="text-xs text-muted mt-1">MP4, WebM (up to 50MB recommended)</span>
-                      <input type="file" accept="video/*" onChange={async (e) => {
+                      
+                      {bannerSaving && bannerUploadProgress > 0 && bannerUploadProgress < 100 && (
+                        <div style={{ width: '80%', marginTop: '1.5rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                            <span>Uploading...</span>
+                            <span>{Math.round(bannerUploadProgress)}%</span>
+                          </div>
+                          <div style={{ width: '100%', backgroundColor: 'var(--surface-hover)', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{ height: '6px', backgroundColor: 'var(--primary)', width: `${bannerUploadProgress}%`, transition: 'width 0.2s' }}></div>
+                          </div>
+                        </div>
+                      )}
+
+                      <input type="file" accept="video/*" disabled={bannerSaving} onChange={async (e) => {
                         if (e.target.files[0]) {
-                          setSaving(true);
+                          setBannerSaving(true);
                           try {
                             const url = await uploadBannerImage(e.target.files[0]);
                             handleChange('homepageVideoUrl', url);
+                            // Auto-save
+                            await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: url }, { merge: true });
                           } catch (err) {
                             alert("Failed to upload video");
                           } finally {
-                            setSaving(false);
+                            setBannerSaving(false);
                           }
                         }
                       }} style={{ display: 'none' }} />
