@@ -682,7 +682,7 @@ const AdminSettings = () => {
                   )}
                   <input 
                     type="file" 
-                    accept="image/*, video/mp4, video/webm" 
+                    accept="image/*, video/*" 
                     onChange={handleBannerImageChange}
                     style={{ fontSize: '0.9rem' }}
                   />
