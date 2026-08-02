@@ -169,13 +169,25 @@ const AdminSettings = () => {
     setIsBannerModalOpen(true);
   };
 
-  const handleBannerImageChange = (e) => {
+  const handleBannerImageChange = async (e) => {
     if (e.target.files[0]) {
       const file = e.target.files[0];
       setBannerImageFile(file);
       setBannerPreviewURL(URL.createObjectURL(file));
       const isVideo = file.type.startsWith('video/');
-      setBannerFormData(prev => ({ ...prev, mediaType: isVideo ? 'video' : 'image' }));
+      setBannerFormData(prev => ({ ...prev, mediaType: isVideo ? 'video' : 'image', imageURL: '' })); // reset imageURL while uploading
+      
+      // Auto-upload to make saving faster
+      setBannerSaving(true);
+      try {
+        const url = await uploadBannerImage(file);
+        setBannerFormData(prev => ({ ...prev, imageURL: url }));
+      } catch (err) {
+        console.error(err);
+        alert("Failed to upload media.");
+      } finally {
+        setBannerSaving(false);
+      }
     }
   };
 
@@ -205,23 +217,21 @@ const AdminSettings = () => {
 
   const handleBannerSubmit = async (e) => {
     e.preventDefault();
+    
+    if (bannerSaving) {
+      alert("Please wait for the media upload to finish before saving.");
+      return;
+    }
+
+    if (!bannerFormData.imageURL) {
+      alert("Please select and upload a banner image or video.");
+      return;
+    }
+
     setBannerSaving(true);
     try {
-      let finalImageURL = bannerFormData.imageURL;
-      
-      if (bannerImageFile) {
-        finalImageURL = await uploadBannerImage(bannerImageFile);
-      }
-
-      if (!finalImageURL) {
-        alert('Please select a banner image');
-        setBannerSaving(false);
-        return;
-      }
-
       const bannerDataToSave = {
         ...bannerFormData,
-        imageURL: finalImageURL,
         updatedAt: Date.now()
       };
 
@@ -651,8 +661,14 @@ const AdminSettings = () => {
                     style={{ fontSize: '0.9rem' }}
                   />
                   {bannerUploadProgress > 0 && bannerUploadProgress < 100 && (
-                    <div style={{ width: '100%', backgroundColor: 'var(--bg-color)', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ height: '4px', backgroundColor: 'var(--primary)', width: `${bannerUploadProgress}%`, transition: 'width 0.2s' }}></div>
+                    <div style={{ width: '100%', marginTop: '0.5rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                        <span>Uploading Media...</span>
+                        <span>{Math.round(bannerUploadProgress)}%</span>
+                      </div>
+                      <div style={{ width: '100%', backgroundColor: 'var(--bg-color)', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{ height: '6px', backgroundColor: 'var(--primary)', width: `${bannerUploadProgress}%`, transition: 'width 0.2s' }}></div>
+                      </div>
                     </div>
                   )}
                 </div>
