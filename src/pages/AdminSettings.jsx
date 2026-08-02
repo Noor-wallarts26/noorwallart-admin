@@ -669,7 +669,7 @@ const AdminSettings = () => {
 
             <form onSubmit={handleBannerSubmit} className="modal-body">
               <div className="form-group">
-                <label>Banner Image Upload *</label>
+                <label>Banner Image / Video Upload *</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'flex-start' }}>
                   {bannerPreviewURL && (
                     <div style={{ width: '100%', height: '150px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-light)' }}>
