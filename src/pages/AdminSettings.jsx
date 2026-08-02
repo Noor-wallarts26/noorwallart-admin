@@ -364,96 +364,60 @@ const AdminSettings = () => {
                   )}
                 </div>
 
-                {/* HOMEPAGE BANNER MANAGEMENT */}
-                <div className="form-group" style={{ marginTop: '2.5rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.125rem' }}>Homepage Banners</h3>
-                    <button type="button" className="btn-primary" onClick={() => handleOpenBannerModal()} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.9rem' }}>
-                      <Plus size={16} /> Add New Homepage Banner
-                    </button>
-                  </div>
+                {/* HOMEPAGE VIDEO BANNER */}
+                <div className="form-group" style={{ marginTop: '2.5rem', padding: '1.5rem', border: '1px solid var(--border-light)', borderRadius: '8px', backgroundColor: 'var(--surface-hover)' }}>
+                  <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.125rem' }}>Homepage Video Banner</h3>
                   <p className="text-sm text-muted" style={{ marginBottom: '1.5rem' }}>
-                    Create unlimited banners. If you create more than one, they will automatically appear in a slider on the homepage.
+                    Upload a video to display on the main website homepage instead of images. It will automatically play on loop without sound.
                   </p>
-
-                  <div className="table-responsive" style={{ border: '1px solid var(--border-light)', borderRadius: '8px' }}>
-                    <table className="admin-table">
-                      <thead>
-                        <tr>
-                          <th>Order</th>
-                          <th>Banner</th>
-                          <th>Details</th>
-                          <th>Location</th>
-                          <th>Status</th>
-                          <th>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sortedBanners.length > 0 ? (
-                          sortedBanners.map((banner, index) => (
-                            <tr key={banner.id}>
-                              <td>
-                                <div className="flex flex-col gap-1 items-center justify-center">
-                                  <button type="button" className="btn-icon" onClick={() => handleMoveBanner(index, 'up')} disabled={index === 0} style={{ padding: '4px', opacity: index === 0 ? 0.3 : 1 }}>
-                                    <ArrowUp size={16} />
-                                  </button>
-                                  <span className="text-muted text-sm font-medium">{index + 1}</span>
-                                  <button type="button" className="btn-icon" onClick={() => handleMoveBanner(index, 'down')} disabled={index === sortedBanners.length - 1} style={{ padding: '4px', opacity: index === sortedBanners.length - 1 ? 0.3 : 1 }}>
-                                    <ArrowDown size={16} />
-                                  </button>
-                                </div>
-                              </td>
-                              <td>
-                                <div style={{ width: '100px', height: '50px', borderRadius: '6px', overflow: 'hidden', backgroundColor: 'var(--bg-color)', border: '1px solid var(--border-light)' }}>
-                                  {banner.imageURL ? (
-                                    banner.mediaType === 'video' ? (
-                                      <video src={banner.imageURL} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
-                                    ) : (
-                                      <img src={banner.imageURL} alt={banner.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    )
-                                  ) : (
-                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                      <ImageIcon size={20} color="var(--text-muted)" />
-                                    </div>
-                                  )}
-                                </div>
-                              </td>
-                              <td>
-                                <div className="font-medium text-sm">{banner.title || 'Untitled'}</div>
-                                {banner.showOnHomepage && <span className="text-xs text-primary" style={{ display: 'inline-block', marginTop: '2px', backgroundColor: '#EFF6FF', padding: '2px 6px', borderRadius: '4px' }}>Shows on Homepage</span>}
-                              </td>
-                              <td>
-                                <span className="status-badge" style={{ backgroundColor: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--border-light)' }}>
-                                  {banner.category === 'All' ? 'All Categories' : categories.find(c => c.id === banner.category)?.name || banner.category}
-                                </span>
-                              </td>
-                              <td>
-                                <button type="button" onClick={() => toggleBannerStatus(banner)} className={`status-badge ${banner.isActive !== false ? 'delivered' : 'cancelled'}`} style={{ cursor: 'pointer', border: 'none' }}>
-                                  {banner.isActive !== false ? 'Active' : 'Disabled'}
-                                </button>
-                              </td>
-                              <td>
-                                <div className="flex gap-2">
-                                  <button type="button" className="btn-icon" onClick={() => handleOpenBannerModal(banner)} title="Edit Banner">
-                                    <Edit size={16} />
-                                  </button>
-                                  <button type="button" className="btn-icon text-danger" onClick={() => handleDeleteBanner(banner.id)} title="Delete Banner">
-                                    <Trash2 size={16} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan="6" className="text-center text-muted" style={{ padding: '2rem' }}>
-                              No banners added yet. Add a banner to display it on your website.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                  
+                  {settings.homepageVideoUrl ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      <div style={{ width: '100%', maxWidth: '400px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-light)' }}>
+                        <video src={settings.homepageVideoUrl} autoPlay loop muted playsInline style={{ width: '100%', height: 'auto', display: 'block' }} />
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.75rem' }}>
+                        <label className="btn-outline" style={{ cursor: 'pointer', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <UploadCloud size={16} /> Replace Video
+                          <input type="file" accept="video/*" onChange={async (e) => {
+                            if (e.target.files[0]) {
+                              setSaving(true);
+                              try {
+                                const url = await uploadBannerImage(e.target.files[0]);
+                                handleChange('homepageVideoUrl', url);
+                              } catch (err) {
+                                alert("Failed to upload video");
+                              } finally {
+                                setSaving(false);
+                              }
+                            }
+                          }} style={{ display: 'none' }} />
+                        </label>
+                        <button type="button" className="btn-secondary" style={{ color: '#DC2626', display: 'flex', alignItems: 'center', gap: '0.5rem' }} onClick={() => handleChange('homepageVideoUrl', '')}>
+                          <Trash2 size={16} /> Remove Video
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem', border: '2px dashed var(--border-light)', borderRadius: '8px', cursor: 'pointer', backgroundColor: 'var(--bg-color)' }}>
+                      <UploadCloud size={32} className="text-muted mb-2" />
+                      <span className="text-sm font-medium">Click to Upload Video Banner</span>
+                      <span className="text-xs text-muted mt-1">MP4, WebM (up to 50MB recommended)</span>
+                      <input type="file" accept="video/*" onChange={async (e) => {
+                        if (e.target.files[0]) {
+                          setSaving(true);
+                          try {
+                            const url = await uploadBannerImage(e.target.files[0]);
+                            handleChange('homepageVideoUrl', url);
+                          } catch (err) {
+                            alert("Failed to upload video");
+                          } finally {
+                            setSaving(false);
+                          }
+                        }
+                      }} style={{ display: 'none' }} />
+                    </label>
+                  )}
                 </div>
               </div>
             )}
