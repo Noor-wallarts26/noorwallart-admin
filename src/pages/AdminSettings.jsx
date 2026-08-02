@@ -556,7 +556,7 @@ const AdminSettings = () => {
                     </div>
                     <h4 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>Payment Settings Locked</h4>
                     <p className="text-sm text-muted" style={{ marginBottom: '1.5rem', maxWidth: '400px', margin: '0 auto 1.5rem auto' }}>
-                      Enter your 6-digit Admin PIN to edit UPI ID, replace QR Code, or modify payment configurations. Default PIN: <strong>252007</strong>
+                      Enter your 6-digit Admin PIN to edit UPI ID, replace QR Code, or modify payment configurations.
                     </p>
 
                     {pinError && (
