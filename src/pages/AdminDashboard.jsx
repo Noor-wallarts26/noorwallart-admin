@@ -1,4 +1,4 @@
-import React, { useContext, useMemo } from 'react';
+import React, { useContext, useMemo, useState } from 'react';
 import { ShopContext } from '../context/ShopContext';
 import { Package, IndianRupee, Clock, CheckCircle, Users, AlertTriangle, TrendingUp, XCircle, Grid, BarChart3, Calendar, ShoppingCart } from 'lucide-react';
 import { 
@@ -10,6 +10,7 @@ const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'
 
 const AdminDashboard = () => {
   const { orders, products } = useContext(ShopContext);
+  const [selectedMetric, setSelectedMetric] = useState('overallRevenue');
 
   // Derived metrics
   const validOrders = orders.filter(o => ['Accepted', 'Processing', 'Packed', 'Shipped', 'Delivered'].includes(o.status));
@@ -123,6 +124,19 @@ Report Generated Automatically by Noor Wallarts Admin
     document.body.removeChild(link);
   };
 
+  const statCards = [
+    { id: 'todayRevenue', title: "Today's Revenue", value: `₹${todayRevenue.toFixed(0)}`, icon: <IndianRupee size={20} />, bg: '#DBEAFE', color: '#1D4ED8' },
+    { id: 'todayOrders', title: "Today's Orders", value: todayOrdersCount, icon: <ShoppingCart size={20} />, bg: '#F3E8FF', color: '#7E22CE' },
+    { id: 'pendingOrders', title: "Pending Orders", value: pendingOrders.length, icon: <Clock size={20} />, bg: '#FEF3C7', color: '#D97706' },
+    { id: 'completedOrders', title: "Completed Orders", value: completedOrders.length, icon: <CheckCircle size={20} />, bg: '#D1FAE5', color: '#059669' },
+    { id: 'cancelledOrders', title: "Cancelled Orders", value: cancelledOrders.length, icon: <XCircle size={20} />, bg: '#FEE2E2', color: '#DC2626' },
+    { id: 'totalCustomers', title: "Total Customers", value: totalCustomers, icon: <Users size={20} />, bg: '#E0E7FF', color: '#4338CA' },
+    { id: 'totalProducts', title: "Total Products", value: products.length, icon: <Package size={20} />, bg: '#FCE7F3', color: '#BE185D' },
+    { id: 'monthlyRevenue', title: "Monthly Revenue", value: `₹${monthlyRevenue.toFixed(0)}`, icon: <Calendar size={20} />, bg: '#E0F2FE', color: '#0369A1' },
+    { id: 'weeklyRevenue', title: "Weekly Revenue", value: `₹${weeklyRevenue.toFixed(0)}`, icon: <TrendingUp size={20} />, bg: '#ECFCCB', color: '#4D7C0F' },
+    { id: 'overallRevenue', title: "Overall Revenue", value: `₹${totalRevenue.toFixed(0)}`, icon: <IndianRupee size={20} />, bg: 'var(--primary)', color: '#fff' },
+  ];
+
   return (
     <div className="animate-fade-in pb-8">
       <div className="admin-page-header">
@@ -135,98 +149,31 @@ Report Generated Automatically by Noor Wallarts Admin
       </div>
 
       {/* 10 METRIC CARDS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-        <div className="admin-stat-card">
-          <div className="flex items-center gap-3">
-            <div className="stat-icon" style={{ backgroundColor: '#DBEAFE', color: '#1D4ED8' }}><IndianRupee size={20} /></div>
-            <div>
-              <p className="text-muted text-sm font-medium">Today's Revenue</p>
-              <h3 className="font-bold text-lg">₹{todayRevenue.toFixed(0)}</h3>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+        {statCards.map((card) => (
+          <div 
+            key={card.id}
+            className="admin-stat-card cursor-pointer" 
+            style={{ 
+              border: selectedMetric === card.id ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+              transition: 'all 0.2s ease',
+              padding: '1.25rem'
+            }}
+            onClick={() => setSelectedMetric(card.id)}
+          >
+            <div className="flex items-center relative w-full h-full">
+              <div className="stat-icon absolute left-0" style={{ backgroundColor: card.bg, color: card.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {card.icon}
+              </div>
+              <div className="w-full text-center pl-12">
+                <p className="text-gray-900 text-sm font-bold mb-1">{card.title}</p>
+                <h3 className="font-bold text-xl mx-auto" style={{ color: selectedMetric === card.id ? 'var(--primary)' : 'inherit' }}>
+                  {card.value}
+                </h3>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="admin-stat-card">
-          <div className="flex items-center gap-3">
-            <div className="stat-icon" style={{ backgroundColor: '#F3E8FF', color: '#7E22CE' }}><ShoppingCart size={20} /></div>
-            <div>
-              <p className="text-muted text-sm font-medium">Today's Orders</p>
-              <h3 className="font-bold text-lg">{todayOrdersCount}</h3>
-            </div>
-          </div>
-        </div>
-        <div className="admin-stat-card">
-          <div className="flex items-center gap-3">
-            <div className="stat-icon" style={{ backgroundColor: '#FEF3C7', color: '#D97706' }}><Clock size={20} /></div>
-            <div>
-              <p className="text-muted text-sm font-medium">Pending Orders</p>
-              <h3 className="font-bold text-lg">{pendingOrders.length}</h3>
-            </div>
-          </div>
-        </div>
-        <div className="admin-stat-card">
-          <div className="flex items-center gap-3">
-            <div className="stat-icon" style={{ backgroundColor: '#D1FAE5', color: '#059669' }}><CheckCircle size={20} /></div>
-            <div>
-              <p className="text-muted text-sm font-medium">Completed Orders</p>
-              <h3 className="font-bold text-lg">{completedOrders.length}</h3>
-            </div>
-          </div>
-        </div>
-        <div className="admin-stat-card">
-          <div className="flex items-center gap-3">
-            <div className="stat-icon" style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}><XCircle size={20} /></div>
-            <div>
-              <p className="text-muted text-sm font-medium">Cancelled Orders</p>
-              <h3 className="font-bold text-lg">{cancelledOrders.length}</h3>
-            </div>
-          </div>
-        </div>
-        
-        <div className="admin-stat-card">
-          <div className="flex items-center gap-3">
-            <div className="stat-icon" style={{ backgroundColor: '#E0E7FF', color: '#4338CA' }}><Users size={20} /></div>
-            <div>
-              <p className="text-muted text-sm font-medium">Total Customers</p>
-              <h3 className="font-bold text-lg">{totalCustomers}</h3>
-            </div>
-          </div>
-        </div>
-        <div className="admin-stat-card">
-          <div className="flex items-center gap-3">
-            <div className="stat-icon" style={{ backgroundColor: '#FCE7F3', color: '#BE185D' }}><Package size={20} /></div>
-            <div>
-              <p className="text-muted text-sm font-medium">Total Products</p>
-              <h3 className="font-bold text-lg">{products.length}</h3>
-            </div>
-          </div>
-        </div>
-        <div className="admin-stat-card">
-          <div className="flex items-center gap-3">
-            <div className="stat-icon" style={{ backgroundColor: '#E0F2FE', color: '#0369A1' }}><Calendar size={20} /></div>
-            <div>
-              <p className="text-muted text-sm font-medium">Monthly Revenue</p>
-              <h3 className="font-bold text-lg">₹{monthlyRevenue.toFixed(0)}</h3>
-            </div>
-          </div>
-        </div>
-        <div className="admin-stat-card">
-          <div className="flex items-center gap-3">
-            <div className="stat-icon" style={{ backgroundColor: '#ECFCCB', color: '#4D7C0F' }}><TrendingUp size={20} /></div>
-            <div>
-              <p className="text-muted text-sm font-medium">Weekly Revenue</p>
-              <h3 className="font-bold text-lg">₹{weeklyRevenue.toFixed(0)}</h3>
-            </div>
-          </div>
-        </div>
-        <div className="admin-stat-card" style={{ border: '2px solid var(--primary)' }}>
-          <div className="flex items-center gap-3">
-            <div className="stat-icon" style={{ backgroundColor: 'var(--primary)', color: '#fff' }}><IndianRupee size={20} /></div>
-            <div>
-              <p className="text-muted text-sm font-medium">Overall Revenue</p>
-              <h3 className="font-bold text-lg" style={{ color: 'var(--primary)' }}>₹{totalRevenue.toFixed(0)}</h3>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* CHARTS */}
