@@ -418,7 +418,8 @@ const AdminSettings = () => {
                                 await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: url }, { merge: true });
                                 alert("Video uploaded successfully!");
                               } catch (err) {
-                                alert("Failed to upload video");
+                                console.error(err);
+                                alert("Failed to upload video: " + (err.message || err.toString()));
                               } finally {
                                 setBannerSaving(false);
                               }
@@ -464,7 +465,8 @@ const AdminSettings = () => {
                             await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: url }, { merge: true });
                             alert("Video uploaded successfully!");
                           } catch (err) {
-                            alert("Failed to upload video");
+                            console.error(err);
+                            alert("Failed to upload video: " + (err.message || err.toString()));
                           } finally {
                             setBannerSaving(false);
                           }
