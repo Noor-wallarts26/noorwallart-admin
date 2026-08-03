@@ -78,7 +78,24 @@ const AdminDashboard = () => {
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
   }, [products]);
 
-  const recentOrders = [...orders].sort((a, b) => b.createdAt - a.createdAt).slice(0, 5);
+  const displayedOrders = useMemo(() => {
+    let sorted = [...orders].sort((a, b) => b.createdAt - a.createdAt);
+    switch(selectedMetric) {
+      case 'todayRevenue':
+      case 'todayOrders':
+        return sorted.slice(0, Math.max(1, Math.floor(sorted.length * 0.2)));
+      case 'pendingOrders':
+        return pendingOrders.sort((a, b) => b.createdAt - a.createdAt);
+      case 'completedOrders':
+        return completedOrders.sort((a, b) => b.createdAt - a.createdAt);
+      case 'cancelledOrders':
+        return cancelledOrders.sort((a, b) => b.createdAt - a.createdAt);
+      default:
+        return sorted;
+    }
+  }, [orders, selectedMetric, pendingOrders, completedOrders, cancelledOrders]);
+
+  const recentOrders = displayedOrders.slice(0, 5);
 
   const handleGenerateReport = () => {
     const reportDate = new Date().toLocaleString();
@@ -272,7 +289,13 @@ Report Generated Automatically by Noor Wallarts Admin
         {/* Recent Orders */}
         <div className="admin-section">
           <div className="admin-section-header">
-            <h2>Recent Orders</h2>
+            <h2>{
+              selectedMetric === 'pendingOrders' ? 'Pending Orders' :
+              selectedMetric === 'completedOrders' ? 'Completed Orders' :
+              selectedMetric === 'cancelledOrders' ? 'Cancelled Orders' :
+              (selectedMetric === 'todayOrders' || selectedMetric === 'todayRevenue') ? "Today's Orders" :
+              'Recent Orders'
+            }</h2>
             <button className="btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }}>View All</button>
           </div>
           <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
