@@ -3,7 +3,7 @@ import { doc, getDoc, setDoc, collection, addDoc, updateDoc, deleteDoc } from 'f
 import { db } from '../firebase';
 import { ShopContext } from '../context/ShopContext';
 import { MessageCircle, Mail, Hash as Instagram, Hash as Facebook, Store, Settings, CreditCard, Shield, Globe, MapPin, Clock, Truck, FileText, Image as ImageIcon, UploadCloud, Trash2, Key, Lock, Eye, EyeOff, Plus, Edit, X, ArrowUp, ArrowDown, ExternalLink } from 'lucide-react';
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 const AdminSettings = () => {
   const { isPinVerified, verifyPin, sendPinResetLink, banners, categories } = useContext(ShopContext);
@@ -192,27 +192,12 @@ const AdminSettings = () => {
   };
 
   const uploadBannerImage = async (file) => {
-    return new Promise((resolve, reject) => {
-      const storage = getStorage();
-      const storageRef = ref(storage, `banners/${Date.now()}_${file.name}`);
-      const uploadTask = uploadBytesResumable(storageRef, file);
-
-      uploadTask.on(
-        'state_changed',
-        (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setBannerUploadProgress(progress);
-        },
-        (error) => {
-          console.error("Upload error:", error);
-          reject(error);
-        },
-        async () => {
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          resolve(downloadURL);
-        }
-      );
-    });
+    const storage = getStorage();
+    const storageRef = ref(storage, `banners/${Date.now()}_${file.name}`);
+    
+    // Using uploadBytes instead of resumable to prevent 0% hang issues on some browsers/networks
+    const snapshot = await uploadBytes(storageRef, file);
+    return await getDownloadURL(snapshot.ref);
   };
 
   const handleBannerSubmit = async (e) => {
@@ -387,11 +372,10 @@ const AdminSettings = () => {
                         <video src={settings.homepageVideoUrl} autoPlay loop muted playsInline style={{ width: '100%', height: 'auto', display: 'block' }} />
                       </div>
                       
-                      {bannerSaving && bannerUploadProgress >= 0 && bannerUploadProgress <= 100 && (
+                      {bannerSaving && (
                         <div style={{ width: '100%', maxWidth: '400px', marginTop: '0.5rem' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                            <span>Uploading Video...</span>
-                            <span>{Math.round(bannerUploadProgress)}%</span>
+                            <span>Uploading Video... This may take a few minutes.</span>
                           </div>
                           <div style={{ width: '100%', backgroundColor: 'var(--bg-color)', borderRadius: '4px', overflow: 'hidden' }}>
                             <div style={{ height: '6px', backgroundColor: 'var(--primary)', width: `${bannerUploadProgress}%`, transition: 'width 0.2s' }}></div>
@@ -437,11 +421,10 @@ const AdminSettings = () => {
                       <span className="text-sm font-medium">{bannerSaving ? 'Uploading Video...' : 'Click to Upload Video Banner'}</span>
                       <span className="text-xs text-muted mt-1">MP4, WebM (up to 50MB recommended)</span>
                       
-                      {bannerSaving && bannerUploadProgress >= 0 && bannerUploadProgress <= 100 && (
+                      {bannerSaving && (
                         <div style={{ width: '80%', marginTop: '1.5rem' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                            <span>Uploading...</span>
-                            <span>{Math.round(bannerUploadProgress)}%</span>
+                            <span>Uploading Video... This may take a few minutes.</span>
                           </div>
                           <div style={{ width: '100%', backgroundColor: 'var(--surface-hover)', borderRadius: '4px', overflow: 'hidden' }}>
                             <div style={{ height: '6px', backgroundColor: 'var(--primary)', width: `${bannerUploadProgress}%`, transition: 'width 0.2s' }}></div>
