@@ -387,7 +387,7 @@ const AdminSettings = () => {
                         <video src={settings.homepageVideoUrl} autoPlay loop muted playsInline style={{ width: '100%', height: 'auto', display: 'block' }} />
                       </div>
                       
-                      {bannerSaving && bannerUploadProgress > 0 && bannerUploadProgress < 100 && (
+                      {bannerSaving && bannerUploadProgress >= 0 && bannerUploadProgress <= 100 && (
                         <div style={{ width: '100%', maxWidth: '400px', marginTop: '0.5rem' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                             <span>Uploading Video...</span>
@@ -437,7 +437,7 @@ const AdminSettings = () => {
                       <span className="text-sm font-medium">{bannerSaving ? 'Uploading Video...' : 'Click to Upload Video Banner'}</span>
                       <span className="text-xs text-muted mt-1">MP4, WebM (up to 50MB recommended)</span>
                       
-                      {bannerSaving && bannerUploadProgress > 0 && bannerUploadProgress < 100 && (
+                      {bannerSaving && bannerUploadProgress >= 0 && bannerUploadProgress <= 100 && (
                         <div style={{ width: '80%', marginTop: '1.5rem' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                             <span>Uploading...</span>
