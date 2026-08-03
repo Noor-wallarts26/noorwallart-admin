@@ -403,13 +403,20 @@ const AdminSettings = () => {
                         <label className="btn-outline" style={{ cursor: bannerSaving ? 'not-allowed' : 'pointer', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: bannerSaving ? 0.6 : 1 }}>
                           <UploadCloud size={16} /> {bannerSaving ? 'Uploading...' : 'Replace Video'}
                           <input type="file" accept="video/*" disabled={bannerSaving} onChange={async (e) => {
-                            if (e.target.files[0]) {
+                            const file = e.target.files[0];
+                            if (file) {
+                              if (file.size > 50 * 1024 * 1024) {
+                                alert("Video is too large! Please upload a video smaller than 50MB.");
+                                return;
+                              }
                               setBannerSaving(true);
+                              setBannerUploadProgress(0);
                               try {
-                                const url = await uploadBannerImage(e.target.files[0]);
+                                const url = await uploadBannerImage(file);
                                 handleChange('homepageVideoUrl', url);
                                 // Auto-save for convenience so they don't have to click save manually
                                 await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: url }, { merge: true });
+                                alert("Video uploaded successfully!");
                               } catch (err) {
                                 alert("Failed to upload video");
                               } finally {
@@ -442,13 +449,20 @@ const AdminSettings = () => {
                       )}
 
                       <input type="file" accept="video/*" disabled={bannerSaving} onChange={async (e) => {
-                        if (e.target.files[0]) {
+                        const file = e.target.files[0];
+                        if (file) {
+                          if (file.size > 50 * 1024 * 1024) {
+                            alert("Video is too large! Please upload a video smaller than 50MB.");
+                            return;
+                          }
                           setBannerSaving(true);
+                          setBannerUploadProgress(0);
                           try {
-                            const url = await uploadBannerImage(e.target.files[0]);
+                            const url = await uploadBannerImage(file);
                             handleChange('homepageVideoUrl', url);
                             // Auto-save
                             await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: url }, { merge: true });
+                            alert("Video uploaded successfully!");
                           } catch (err) {
                             alert("Failed to upload video");
                           } finally {
