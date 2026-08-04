@@ -193,7 +193,8 @@ const AdminSettings = () => {
 
   const uploadBannerImage = async (file) => {
     const storage = getStorage();
-    const storageRef = ref(storage, `banners/${Date.now()}_${file.name}`);
+    const safeName = file.name ? file.name.replace(/[^a-zA-Z0-9.]/g, '_') : 'video.mp4';
+    const storageRef = ref(storage, `banners/${Date.now()}_${safeName}`);
     
     // Using uploadBytes instead of resumable to prevent 0% hang issues on some browsers/networks
     const snapshot = await uploadBytes(storageRef, file);
@@ -398,7 +399,6 @@ const AdminSettings = () => {
                               try {
                                 const url = await uploadBannerImage(file);
                                 handleChange('homepageVideoUrl', url);
-                                // Auto-save for convenience so they don't have to click save manually
                                 await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: url }, { merge: true });
                                 alert("Video uploaded successfully!");
                               } catch (err) {
@@ -410,9 +410,20 @@ const AdminSettings = () => {
                             }
                           }} style={{ display: 'none' }} />
                         </label>
-                        <button type="button" className="btn-secondary" disabled={bannerSaving} style={{ color: '#DC2626', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: bannerSaving ? 0.6 : 1 }} onClick={() => handleChange('homepageVideoUrl', '')}>
+                        <button type="button" className="btn-secondary" disabled={bannerSaving} style={{ color: '#DC2626', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: bannerSaving ? 0.6 : 1 }} onClick={() => {
+                          handleChange('homepageVideoUrl', '');
+                          setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: '' }, { merge: true });
+                        }}>
                           <Trash2 size={16} /> Remove Video
                         </button>
+                      </div>
+                      
+                      <div style={{ marginTop: '1rem', width: '100%' }}>
+                        <label className="text-sm font-medium">Or Paste Direct Video URL:</label>
+                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                          <input type="text" className="form-input" placeholder="https://example.com/video.mp4" value={settings.homepageVideoUrl || ''} onChange={(e) => handleChange('homepageVideoUrl', e.target.value)} style={{ flex: 1 }} />
+                          <button type="button" className="btn-primary" onClick={() => setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: settings.homepageVideoUrl }, { merge: true })}>Save URL</button>
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -444,7 +455,6 @@ const AdminSettings = () => {
                           try {
                             const url = await uploadBannerImage(file);
                             handleChange('homepageVideoUrl', url);
-                            // Auto-save
                             await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: url }, { merge: true });
                             alert("Video uploaded successfully!");
                           } catch (err) {
@@ -456,6 +466,14 @@ const AdminSettings = () => {
                         }
                       }} style={{ display: 'none' }} />
                     </label>
+                    
+                    <div style={{ marginTop: '1.5rem', width: '100%', maxWidth: '500px', margin: '1.5rem auto 0 auto' }}>
+                      <label className="text-sm font-medium text-center" style={{ display: 'block', marginBottom: '0.5rem' }}>Or Paste Direct Video URL:</label>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <input type="text" className="form-input" placeholder="https://example.com/video.mp4" value={settings.homepageVideoUrl || ''} onChange={(e) => handleChange('homepageVideoUrl', e.target.value)} style={{ flex: 1 }} />
+                        <button type="button" className="btn-primary" onClick={() => setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: settings.homepageVideoUrl }, { merge: true })}>Save URL</button>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
