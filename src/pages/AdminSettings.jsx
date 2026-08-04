@@ -359,6 +359,48 @@ const AdminSettings = () => {
                     </label>
                   )}
                 </div>
+                {/* HOMEPAGE IMAGE BANNER UPLOAD */}
+                <div className="form-group" style={{ marginTop: '1.5rem', padding: '1rem', border: '1px solid var(--border-light)', borderRadius: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <label style={{ fontWeight: 600, margin: 0 }}>Homepage Image Banner (Old Banner)</label>
+                    {settings.homepageVideoUrl && (
+                      <button 
+                        type="button" 
+                        className="btn-outline" 
+                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.75rem', color: '#059669', borderColor: '#059669' }}
+                        onClick={async () => {
+                          handleChange('homepageVideoUrl', '');
+                          await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: '' }, { merge: true });
+                          alert("Switched back to Image Banner! Video banner removed.");
+                        }}
+                      >
+                        Use Image Banner Instead of Video
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted" style={{ marginBottom: '1rem' }}>Upload your static image banner for the website homepage.</p>
+                  {settings.homepageBannerUrl ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                      <img src={settings.homepageBannerUrl} alt="Homepage Banner" style={{ width: '180px', height: '80px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--border-light)' }} />
+                      <div style={{ display: 'flex', gap: '0.75rem' }}>
+                        <label className="btn-outline" style={{ cursor: 'pointer', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <UploadCloud size={16} /> Replace Image Banner
+                          <input type="file" accept="image/*" onChange={(e) => handleImageFileUpload(e, 'homepageBannerUrl')} style={{ display: 'none' }} />
+                        </label>
+                        <button type="button" className="btn-secondary" style={{ color: '#DC2626', display: 'flex', alignItems: 'center', gap: '0.5rem' }} onClick={() => handleChange('homepageBannerUrl', '')}>
+                          <Trash2 size={16} /> Delete Image
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', border: '2px dashed var(--border-light)', borderRadius: '8px', cursor: 'pointer' }}>
+                      <ImageIcon size={32} className="text-muted mb-2" />
+                      <span className="text-sm font-medium">Click to Upload Homepage Image Banner</span>
+                      <span className="text-xs text-muted mt-1">PNG, JPG, WebP up to 5MB</span>
+                      <input type="file" accept="image/*" onChange={(e) => handleImageFileUpload(e, 'homepageBannerUrl')} style={{ display: 'none' }} />
+                    </label>
+                  )}
+                </div>
 
                 {/* HOMEPAGE VIDEO BANNER */}
                 <div className="form-group" style={{ marginTop: '2.5rem', padding: '1.5rem', border: '1px solid var(--border-light)', borderRadius: '8px', backgroundColor: 'var(--surface-hover)' }}>
