@@ -1093,88 +1093,11 @@ const AdminSettings = () => {
                   {bannerSaving ? 'Saving...' : 'Save Banner'}
                 </button>
               </div>
-      {/* Brand Modal */}
-      {isBrandModalOpen && (
-        <div className="modal-overlay" onClick={() => !brandSaving && setIsBrandModalOpen(false)} style={{ zIndex: 9999 }}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-            <div className="modal-header">
-              <h2>{editingBrand ? 'Edit Brand' : 'Add New Brand'}</h2>
-              <button className="btn-icon" onClick={() => !brandSaving && setIsBrandModalOpen(false)}>
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveBrand} className="modal-body">
-              <div className="form-group">
-                <label>Brand Name *</label>
-                <input 
-                  type="text" 
-                  value={brandFormData.name} 
-                  onChange={(e) => setBrandFormData({...brandFormData, name: e.target.value})}
-                  placeholder="e.g. Noor Crafts, Royal Art"
-                  required
-                />
-              </div>
-
-              <div className="form-group" style={{ marginTop: '1rem' }}>
-                <label>Brand Description</label>
-                <textarea 
-                  value={brandFormData.description} 
-                  onChange={(e) => setBrandFormData({...brandFormData, description: e.target.value})}
-                  placeholder="Brief description of the brand..."
-                  rows="3"
-                />
-              </div>
-
-              <div className="form-group" style={{ marginTop: '1rem' }}>
-                <label>Brand Logo Image Upload / URL</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {brandFormData.logoUrl && (
-                    <img src={brandFormData.logoUrl} alt="Logo Preview" style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-light)' }} onError="this.src='/logo.jpg'" />
-                  )}
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    onChange={async (e) => {
-                      if (e.target.files[0]) {
-                        setBrandSaving(true);
-                        try {
-                          const url = await uploadBannerImage(e.target.files[0]);
-                          setBrandFormData(prev => ({ ...prev, logoUrl: url }));
-                        } catch (err) {
-                          alert("Failed to upload brand logo.");
-                        } finally {
-                          setBrandSaving(false);
-                        }
-                      }
-                    }}
-                    style={{ fontSize: '0.875rem' }}
-                  />
-                </div>
-              </div>
-
-              <div className="form-group" style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <input 
-                  type="checkbox" 
-                  id="isActiveBrand" 
-                  checked={brandFormData.isActive} 
-                  onChange={(e) => setBrandFormData({...brandFormData, isActive: e.target.checked})}
-                  style={{ width: 'auto' }}
-                />
-                <label htmlFor="isActiveBrand" style={{ margin: 0, cursor: 'pointer' }}>Active Brand</label>
-              </div>
-
-              <div className="modal-footer" style={{ marginTop: '1.5rem' }}>
-                <button type="button" className="btn-secondary" onClick={() => setIsBrandModalOpen(false)} disabled={brandSaving}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary" disabled={brandSaving}>
-                  {brandSaving ? 'Saving...' : 'Save Brand'}
-                </button>
-              </div>
             </form>
           </div>
         </div>
+      )}
+
       {/* Brand Modal */}
       {isBrandModalOpen && (
         <div className="modal-overlay" onClick={() => !brandSaving && setIsBrandModalOpen(false)} style={{ zIndex: 9999 }}>
@@ -1209,13 +1132,30 @@ const AdminSettings = () => {
               </div>
 
               <div className="form-group">
-                <label>Brand Logo URL</label>
-                <input 
-                  type="text" 
-                  value={brandFormData.logoUrl} 
-                  onChange={(e) => setBrandFormData({...brandFormData, logoUrl: e.target.value})}
-                  placeholder="https://example.com/logo.png"
-                />
+                <label>Brand Logo Image Upload / URL</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {brandFormData.logoUrl && (
+                    <img src={brandFormData.logoUrl} alt="Logo Preview" style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-light)' }} onError={(e) => e.target.src='/logo.jpg'} />
+                  )}
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={async (e) => {
+                      if (e.target.files[0]) {
+                        setBrandSaving(true);
+                        try {
+                          const url = await uploadBannerImage(e.target.files[0]);
+                          setBrandFormData(prev => ({ ...prev, logoUrl: url }));
+                        } catch (err) {
+                          alert("Failed to upload brand logo.");
+                        } finally {
+                          setBrandSaving(false);
+                        }
+                      }
+                    }}
+                    style={{ fontSize: '0.875rem' }}
+                  />
+                </div>
               </div>
 
               <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem' }}>
