@@ -273,31 +273,61 @@ const AdminSettings = () => {
 
   const uploadBannerImage = async (file) => {
     const storage = getStorage();
-    const safeName = file.name ? file.name.replace(/[^a-zA-Z0-9.]/g, '_') : 'video.mp4';
+    const safeName = file.name ? file.name.replace(/[^a-zA-Z0-9.]/g, '_') : 'image.jpg';
     const storageRef = ref(storage, `banners/${Date.now()}_${safeName}`);
-    
-    // Using uploadBytes instead of resumable to prevent 0% hang issues on some browsers/networks
     const snapshot = await uploadBytes(storageRef, file);
     return await getDownloadURL(snapshot.ref);
+  };
+
+  const uploadBannerVideoResumable = (file, onProgress) => {
+    return new Promise((resolve, reject) => {
+      const storage = getStorage();
+      const safeName = file.name ? file.name.replace(/[^a-zA-Z0-9.]/g, '_') : 'video.mp4';
+      const storageRef = ref(storage, `banners/${Date.now()}_${safeName}`);
+      
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      uploadTask.on(
+        'state_changed',
+        (snapshot) => {
+          const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+          if (onProgress) onProgress(progress);
+        },
+        (error) => {
+          console.error("Firebase Storage Video Upload Error:", error);
+          reject(error);
+        },
+        async () => {
+          try {
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            resolve(downloadURL);
+          } catch (err) {
+            reject(err);
+          }
+        }
+      );
+    });
   };
 
   const handleVideoUpload = async (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
-    if (file.size > 50 * 1024 * 1024) {
-      alert("Video is too large! Please upload a video smaller than 50MB.");
+    if (file.size > 100 * 1024 * 1024) {
+      alert("Video file is too large! Please upload a video smaller than 100MB, or paste a video URL below.");
       return;
     }
     setBannerSaving(true);
     setBannerUploadProgress(0);
     try {
-      const url = await uploadBannerImage(file);
+      const url = await uploadBannerVideoResumable(file, (progress) => {
+        setBannerUploadProgress(progress);
+      });
       handleChange('homepageVideoUrl', url);
       await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: url }, { merge: true });
-      alert("Video uploaded successfully!");
+      alert("Video uploaded and saved successfully!");
     } catch (err) {
       console.error(err);
-      alert("Failed to upload video: " + (err.message || err.toString()));
+      alert("Video Upload Warning: Storage upload encountered an issue (" + (err.message || err.toString()) + ").\n\nYou can also paste a direct Video URL (MP4 link) in the input box below!");
     } finally {
       setBannerSaving(false);
     }
@@ -475,108 +505,70 @@ const AdminSettings = () => {
                     </label>
                   )}
                 </div>
-                {/* HOMEPAGE IMAGE BANNER UPLOAD */}
-                <div className="form-group" style={{ marginTop: '1.5rem', padding: '1rem', border: '1px solid var(--border-light)', borderRadius: '8px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                    <label style={{ fontWeight: 600, margin: 0 }}>Homepage Image Banner (Old Banner)</label>
-                    {settings.homepageVideoUrl && (
-                      <button 
-                        type="button" 
-                        className="btn-outline" 
-                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.75rem', color: '#059669', borderColor: '#059669' }}
-                        onClick={async () => {
-                          handleChange('homepageVideoUrl', '');
-                          await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: '' }, { merge: true });
-                          alert("Switched back to Image Banner! Video banner removed.");
-                        }}
-                      >
-                        Use Image Banner Instead of Video
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted" style={{ marginBottom: '1rem' }}>Upload your static image banner for the website homepage.</p>
-                  {settings.homepageBannerUrl ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                      <img src={settings.homepageBannerUrl} alt="Homepage Banner" style={{ width: '180px', height: '80px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--border-light)' }} />
-                      <div style={{ display: 'flex', gap: '0.75rem' }}>
-                        <label className="btn-outline" style={{ cursor: 'pointer', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <UploadCloud size={16} /> Replace Image Banner
-                          <input type="file" accept="image/*" onChange={(e) => handleImageFileUpload(e, 'homepageBannerUrl')} style={{ display: 'none' }} />
-                        </label>
-                        <button type="button" className="btn-secondary" style={{ color: '#DC2626', display: 'flex', alignItems: 'center', gap: '0.5rem' }} onClick={() => handleChange('homepageBannerUrl', '')}>
-                          <Trash2 size={16} /> Delete Image
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', border: '2px dashed var(--border-light)', borderRadius: '8px', cursor: 'pointer' }}>
-                      <ImageIcon size={32} className="text-muted mb-2" />
-                      <span className="text-sm font-medium">Click to Upload Homepage Image Banner</span>
-                      <span className="text-xs text-muted mt-1">PNG, JPG, WebP up to 5MB</span>
-                      <input type="file" accept="image/*" onChange={(e) => handleImageFileUpload(e, 'homepageBannerUrl')} style={{ display: 'none' }} />
-                    </label>
-                  )}
-                </div>
-
                 {/* HOMEPAGE VIDEO BANNER */}
-                <div className="form-group" style={{ marginTop: '2.5rem', padding: '1.5rem', border: '1px solid var(--border-light)', borderRadius: '8px', backgroundColor: 'var(--surface-hover)' }}>
-                  <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.125rem' }}>Homepage Video Banner</h3>
-                  <p className="text-sm text-muted" style={{ marginBottom: '1.5rem' }}>
-                    Upload a video to display on the main website homepage instead of images. It will automatically play on loop without sound.
+                <div className="form-group" style={{ marginTop: '2rem', padding: '1.5rem', border: '1px solid var(--border-light)', borderRadius: '12px', backgroundColor: 'var(--surface-hover)' }}>
+                  <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.125rem', color: 'var(--text-primary)' }}>Homepage Video Banner</h3>
+                  <p className="text-sm text-muted" style={{ marginBottom: '1.5rem', lineHeight: '1.5' }}>
+                    Upload an MP4 / WebM video or paste a direct video URL. It will automatically play seamlessly on loop without sound across mobile & desktop devices.
                   </p>
                   
                   {settings.homepageVideoUrl ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                      <div style={{ width: '100%', maxWidth: '400px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-light)' }}>
+                      <div style={{ width: '100%', maxWidth: '480px', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-light)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
                         <video src={settings.homepageVideoUrl} autoPlay loop muted playsInline style={{ width: '100%', height: 'auto', display: 'block' }} />
                       </div>
                       
                       {bannerSaving && (
-                        <div style={{ width: '100%', maxWidth: '400px', marginTop: '0.5rem' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                            <span>Uploading Video... This may take a few minutes.</span>
+                        <div style={{ width: '100%', maxWidth: '480px', marginTop: '0.5rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                            <span>Uploading Video...</span>
+                            <span>{bannerUploadProgress}%</span>
                           </div>
-                          <div style={{ width: '100%', backgroundColor: 'var(--bg-color)', borderRadius: '4px', overflow: 'hidden' }}>
-                            <div style={{ height: '6px', backgroundColor: 'var(--primary)', width: `${bannerUploadProgress}%`, transition: 'width 0.2s' }}></div>
+                          <div style={{ width: '100%', backgroundColor: 'var(--bg-color)', borderRadius: '6px', overflow: 'hidden', height: '8px', border: '1px solid var(--border-light)' }}>
+                            <div style={{ height: '100%', backgroundColor: 'var(--primary)', width: `${bannerUploadProgress}%`, transition: 'width 0.2s linear' }}></div>
                           </div>
                         </div>
                       )}
 
-                      <div style={{ display: 'flex', gap: '0.75rem' }}>
-                        <label className="btn-outline" style={{ cursor: bannerSaving ? 'not-allowed' : 'pointer', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: bannerSaving ? 0.6 : 1 }}>
-                          <UploadCloud size={16} /> {bannerSaving ? 'Uploading...' : 'Replace Video'}
+                      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                        <label className="btn-outline" style={{ cursor: bannerSaving ? 'not-allowed' : 'pointer', padding: '0.6rem 1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: bannerSaving ? 0.6 : 1, borderRadius: '8px' }}>
+                          <UploadCloud size={18} /> {bannerSaving ? `Uploading (${bannerUploadProgress}%)...` : 'Replace Video File'}
                           <input type="file" accept="video/*" disabled={bannerSaving} onChange={handleVideoUpload} style={{ display: 'none' }} />
                         </label>
-                        <button type="button" className="btn-secondary" disabled={bannerSaving} style={{ color: '#DC2626', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: bannerSaving ? 0.6 : 1 }} onClick={() => {
+                        <button type="button" className="btn-secondary" disabled={bannerSaving} style={{ color: '#DC2626', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: bannerSaving ? 0.6 : 1, borderRadius: '8px' }} onClick={() => {
                           handleChange('homepageVideoUrl', '');
                           setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: '' }, { merge: true });
                         }}>
-                          <Trash2 size={16} /> Remove Video
+                          <Trash2 size={18} /> Remove Video
                         </button>
                       </div>
                       
-                      <div style={{ marginTop: '1rem', width: '100%' }}>
-                        <label className="text-sm font-medium">Or Paste Direct Video URL:</label>
-                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                      <div style={{ marginTop: '1rem', width: '100%', maxWidth: '550px' }}>
+                        <label className="text-sm font-medium" style={{ display: 'block', marginBottom: '0.5rem' }}>Or Update Direct Video URL (MP4 / WebM Link):</label>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
                           <input type="text" className="form-input" placeholder="https://example.com/video.mp4" value={settings.homepageVideoUrl || ''} onChange={(e) => handleChange('homepageVideoUrl', e.target.value)} style={{ flex: 1 }} />
-                          <button type="button" className="btn-primary" onClick={() => setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: settings.homepageVideoUrl }, { merge: true })}>Save URL</button>
+                          <button type="button" className="btn-primary" onClick={() => {
+                            setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: settings.homepageVideoUrl }, { merge: true });
+                            alert("Video URL saved successfully!");
+                          }}>Save URL</button>
                         </div>
                       </div>
                     </div>
                   ) : (
                     <>
-                      <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem', border: '2px dashed var(--border-light)', borderRadius: '8px', cursor: bannerSaving ? 'not-allowed' : 'pointer', backgroundColor: 'var(--bg-color)', opacity: bannerSaving ? 0.6 : 1 }}>
-                        <UploadCloud size={32} className="text-muted mb-2" />
-                        <span className="text-sm font-medium">{bannerSaving ? 'Uploading Video...' : 'Click to Upload Video Banner'}</span>
-                        <span className="text-xs text-muted mt-1">MP4, WebM (up to 50MB recommended)</span>
+                      <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem 2rem', border: '2px dashed var(--border-light)', borderRadius: '12px', cursor: bannerSaving ? 'not-allowed' : 'pointer', backgroundColor: 'var(--bg-color)', opacity: bannerSaving ? 0.6 : 1 }}>
+                        <UploadCloud size={40} className="text-primary mb-2" />
+                        <span className="text-base font-semibold">{bannerSaving ? `Uploading Video (${bannerUploadProgress}%)...` : 'Click to Upload Video Banner'}</span>
+                        <span className="text-xs text-muted mt-1">Supports MP4, WebM files up to 100MB</span>
                         
                         {bannerSaving && (
                           <div style={{ width: '80%', marginTop: '1.5rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                              <span>Uploading Video... This may take a few minutes.</span>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                              <span>Uploading to Cloud Storage...</span>
+                              <span>{bannerUploadProgress}%</span>
                             </div>
-                            <div style={{ width: '100%', backgroundColor: 'var(--surface-hover)', borderRadius: '4px', overflow: 'hidden' }}>
-                              <div style={{ height: '6px', backgroundColor: 'var(--primary)', width: `${bannerUploadProgress}%`, transition: 'width 0.2s' }}></div>
+                            <div style={{ width: '100%', backgroundColor: 'var(--surface-hover)', borderRadius: '6px', overflow: 'hidden', height: '10px', border: '1px solid var(--border-light)' }}>
+                              <div style={{ height: '100%', backgroundColor: 'var(--primary)', width: `${bannerUploadProgress}%`, transition: 'width 0.2s linear' }}></div>
                             </div>
                           </div>
                         )}
@@ -584,11 +576,14 @@ const AdminSettings = () => {
                         <input type="file" accept="video/*" disabled={bannerSaving} onChange={handleVideoUpload} style={{ display: 'none' }} />
                       </label>
                       
-                      <div style={{ marginTop: '1.5rem', width: '100%', maxWidth: '500px', margin: '1.5rem auto 0 auto' }}>
-                        <label className="text-sm font-medium text-center" style={{ display: 'block', marginBottom: '0.5rem' }}>Or Paste Direct Video URL:</label>
+                      <div style={{ marginTop: '1.5rem', width: '100%', maxWidth: '550px', margin: '1.5rem auto 0 auto' }}>
+                        <label className="text-sm font-medium text-center" style={{ display: 'block', marginBottom: '0.5rem' }}>Or Paste Direct Video URL (MP4 / WebM Link):</label>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                           <input type="text" className="form-input" placeholder="https://example.com/video.mp4" value={settings.homepageVideoUrl || ''} onChange={(e) => handleChange('homepageVideoUrl', e.target.value)} style={{ flex: 1 }} />
-                          <button type="button" className="btn-primary" onClick={() => setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: settings.homepageVideoUrl }, { merge: true })}>Save URL</button>
+                          <button type="button" className="btn-primary" onClick={() => {
+                            setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: settings.homepageVideoUrl }, { merge: true });
+                            alert("Video URL saved successfully!");
+                          }}>Save URL</button>
                         </div>
                       </div>
                     </>
