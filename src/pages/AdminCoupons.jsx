@@ -1,8 +1,29 @@
 import React, { useState, useEffect, useContext, useMemo, useRef } from 'react';
-import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, runTransaction } from 'firebase/firestore';
 import { db } from '../firebase';
 import { ShopContext } from '../context/ShopContext';
-import { Ticket, Plus, Trash2, Search, Edit2, ShieldAlert, X, ChevronDown, Check, Sparkles, RotateCcw } from 'lucide-react';
+import { Ticket, Plus, Trash2, Search, Edit2, ShieldAlert, X, ChevronDown, Check, Sparkles, RotateCcw, Clock, CheckCircle2, AlertTriangle, Filter } from 'lucide-react';
+
+// Atomic Sequential Coupon ID Generator (CPN-0001, CPN-0002, ...)
+const generateNextCouponId = async (firestoreDb) => {
+  const counterRef = doc(firestoreDb, 'system', 'counters');
+  try {
+    const nextNum = await runTransaction(firestoreDb, async (transaction) => {
+      const counterSnap = await transaction.get(counterRef);
+      let currentVal = 0;
+      if (counterSnap.exists()) {
+        currentVal = Number(counterSnap.data().lastCouponNumber) || 0;
+      }
+      const nextVal = currentVal + 1;
+      transaction.set(counterRef, { lastCouponNumber: nextVal }, { merge: true });
+      return nextVal;
+    });
+    return `CPN-${String(nextNum).padStart(4, '0')}`;
+  } catch (err) {
+    console.error("Error generating couponId transaction:", err);
+    return `CPN-${String(Math.floor(Math.random() * 8999) + 1000)}`;
+  }
+};
 
 // Custom Searchable Multi-Select Dropdown Component with Chips/Tags
 const MultiSelectDropdown = ({ 
@@ -17,7 +38,6 @@ const MultiSelectDropdown = ({
   const [search, setSearch] = useState('');
   const dropdownRef = useRef(null);
 
-  // Close dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -73,7 +93,6 @@ const MultiSelectDropdown = ({
     <div className="form-group" ref={dropdownRef} style={{ position: 'relative' }}>
       <label style={{ fontWeight: 600, display: 'block', marginBottom: '0.4rem', fontSize: '0.875rem' }}>{label}</label>
       
-      {/* Clickable Header Box showing Chips */}
       <div 
         onClick={() => setIsOpen(!isOpen)}
         style={{
@@ -130,7 +149,6 @@ const MultiSelectDropdown = ({
         <ChevronDown size={18} style={{ color: '#64748b', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
       </div>
 
-      {/* Dropdown Popup Menu */}
       {isOpen && (
         <div style={{
           position: 'absolute',
@@ -149,7 +167,6 @@ const MultiSelectDropdown = ({
           flexDirection: 'column',
           animation: 'fadeIn 0.15s ease-out'
         }}>
-          {/* Search Input */}
           <div style={{ position: 'relative', marginBottom: '0.5rem' }}>
             <Search size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
             <input 
@@ -169,15 +186,12 @@ const MultiSelectDropdown = ({
             />
           </div>
 
-          {/* Quick Actions Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 0.25rem 0.4rem 0.25rem', fontSize: '0.75rem', color: '#64748b', borderBottom: '1px solid #f1f5f9' }}>
             <button type="button" onClick={handleSelectAllFiltered} style={{ background: 'none', border: 'none', color: '#4f46e5', cursor: 'pointer', fontWeight: 600 }}>Select Filtered</button>
             <button type="button" onClick={handleClearAll} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 600 }}>Reset to {allLabel}</button>
           </div>
 
-          {/* Checkbox Options List */}
           <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.15rem', marginTop: '0.35rem' }}>
-            {/* All Option */}
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.4rem 0.6rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', backgroundColor: isAllSelected ? '#f1f5f9' : 'transparent' }}>
               <input 
                 type="checkbox"
@@ -220,51 +234,41 @@ const AdminCoupons = () => {
   const [coupons, setCoupons] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
   
-  // Dynamically load all available category names from database
   const categoryOptions = useMemo(() => {
     const catSet = new Set();
-
     if (Array.isArray(categories)) {
       categories.forEach(c => {
         const catName = typeof c === 'string' ? c : (c?.name || c?.title || c?.category);
-        if (catName && typeof catName === 'string' && catName.trim()) {
-          catSet.add(catName.trim());
-        }
+        if (catName && typeof catName === 'string' && catName.trim()) catSet.add(catName.trim());
       });
     }
-
     if (Array.isArray(products)) {
       products.forEach(p => {
-        if (p?.category && typeof p.category === 'string' && p.category.trim()) {
-          catSet.add(p.category.trim());
-        }
+        if (p?.category && typeof p.category === 'string' && p.category.trim()) catSet.add(p.category.trim());
         if (Array.isArray(p?.categories)) {
           p.categories.forEach(cat => {
-            if (cat && typeof cat === 'string' && cat.trim()) {
-              catSet.add(cat.trim());
-            }
+            if (cat && typeof cat === 'string' && cat.trim()) catSet.add(cat.trim());
           });
         }
       });
     }
-
     return Array.from(catSet).sort((a, b) => a.localeCompare(b));
   }, [categories, products]);
 
-  // Dynamically load all available product titles from database
   const productOptions = useMemo(() => {
     if (!Array.isArray(products)) return [];
-    return products
-      .map(p => (p?.title || p?.name || '').trim())
-      .filter(Boolean)
-      .sort((a, b) => a.localeCompare(b));
+    return products.map(p => (p?.title || p?.name || '').trim()).filter(Boolean).sort((a, b) => a.localeCompare(b));
   }, [products]);
 
   const [formData, setFormData] = useState({
+    couponId: '',
     code: '',
     discountType: 'percentage',
     discountValue: '',
+    usageMode: 'multi', // multi or one_time
+    startDate: '',
     expiryDate: '',
     minOrderAmount: 0,
     usageLimit: 0,
@@ -282,23 +286,17 @@ const AdminCoupons = () => {
     return () => unsubscribe();
   }, []);
 
-  // Helper to extract configuration from the last created coupon
   const getLastCouponConfig = () => {
     let lastCoupon = null;
-
-    // 1. Try from localStorage cache first
     try {
       const cached = localStorage.getItem('last_coupon_config');
-      if (cached) {
-        lastCoupon = JSON.parse(cached);
-      }
+      if (cached) lastCoupon = JSON.parse(cached);
     } catch (e) {}
 
-    // 2. Fallback to latest item in coupons collection
     if (!lastCoupon && Array.isArray(coupons) && coupons.length > 0) {
       const sorted = [...coupons].sort((a, b) => {
-        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : (a.updatedAt ? new Date(a.updatedAt).getTime() : 0);
-        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : (b.updatedAt ? new Date(b.updatedAt).getTime() : 0);
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return timeB - timeA;
       });
       lastCoupon = sorted[0];
@@ -306,31 +304,25 @@ const AdminCoupons = () => {
 
     if (!lastCoupon) return null;
 
-    // Parse assignedCategories
     let catArr = ['All Categories'];
     if (Array.isArray(lastCoupon.assignedCategories) && lastCoupon.assignedCategories.length > 0) {
       catArr = lastCoupon.assignedCategories;
     } else if (Array.isArray(lastCoupon.categoryIds) && lastCoupon.categoryIds.length > 0) {
       catArr = lastCoupon.categoryIds;
-    } else if (lastCoupon.assignedCategory && typeof lastCoupon.assignedCategory === 'string') {
-      catArr = lastCoupon.assignedCategory.split(',').map(s => s.trim()).filter(Boolean);
-      if (catArr.length === 0) catArr = ['All Categories'];
     }
 
-    // Parse assignedProducts
     let prodArr = ['All Products'];
     if (Array.isArray(lastCoupon.assignedProducts) && lastCoupon.assignedProducts.length > 0) {
       prodArr = lastCoupon.assignedProducts;
     } else if (Array.isArray(lastCoupon.productIds) && lastCoupon.productIds.length > 0) {
       prodArr = lastCoupon.productIds;
-    } else if (lastCoupon.assignedProduct && typeof lastCoupon.assignedProduct === 'string') {
-      prodArr = lastCoupon.assignedProduct.split(',').map(s => s.trim()).filter(Boolean);
-      if (prodArr.length === 0) prodArr = ['All Products'];
     }
 
     return {
       discountType: lastCoupon.discountType || 'percentage',
       discountValue: lastCoupon.discountValue || '',
+      usageMode: lastCoupon.usageMode || 'multi',
+      startDate: lastCoupon.startDate || '',
       expiryDate: lastCoupon.expiryDate || '',
       minOrderAmount: lastCoupon.minOrderAmount || 0,
       usageLimit: lastCoupon.usageLimit || 0,
@@ -342,13 +334,10 @@ const AdminCoupons = () => {
 
   const handleOpenModal = (coupon = null) => {
     if (coupon) {
-      // Editing existing coupon
       let catArr = ['All Categories'];
       if (Array.isArray(coupon.assignedCategories) && coupon.assignedCategories.length > 0) {
         catArr = coupon.assignedCategories;
-      } else if (Array.isArray(coupon.categoryIds) && coupon.categoryIds.length > 0) {
-        catArr = coupon.categoryIds;
-      } else if (coupon.assignedCategory && typeof coupon.assignedCategory === 'string') {
+      } else if (coupon.assignedCategory) {
         catArr = coupon.assignedCategory.split(',').map(s => s.trim()).filter(Boolean);
         if (catArr.length === 0) catArr = ['All Categories'];
       }
@@ -356,17 +345,18 @@ const AdminCoupons = () => {
       let prodArr = ['All Products'];
       if (Array.isArray(coupon.assignedProducts) && coupon.assignedProducts.length > 0) {
         prodArr = coupon.assignedProducts;
-      } else if (Array.isArray(coupon.productIds) && coupon.productIds.length > 0) {
-        prodArr = coupon.productIds;
-      } else if (coupon.assignedProduct && typeof coupon.assignedProduct === 'string') {
+      } else if (coupon.assignedProduct) {
         prodArr = coupon.assignedProduct.split(',').map(s => s.trim()).filter(Boolean);
         if (prodArr.length === 0) prodArr = ['All Products'];
       }
 
       setFormData({
+        couponId: coupon.couponId || '',
         code: coupon.code || '',
         discountType: coupon.discountType || 'percentage',
         discountValue: coupon.discountValue || '',
+        usageMode: coupon.usageMode || 'multi',
+        startDate: coupon.startDate || '',
         expiryDate: coupon.expiryDate || '',
         minOrderAmount: coupon.minOrderAmount || 0,
         usageLimit: coupon.usageLimit || 0,
@@ -376,13 +366,15 @@ const AdminCoupons = () => {
       });
       setEditingId(coupon.id);
     } else {
-      // Creating NEW coupon: Smart Auto-prefill with Last Used Settings!
       const lastConfig = getLastCouponConfig();
       if (lastConfig) {
         setFormData({
-          code: '', // Code is ALWAYS empty for a new coupon!
+          couponId: '',
+          code: '',
           discountType: lastConfig.discountType,
           discountValue: lastConfig.discountValue,
+          usageMode: lastConfig.usageMode,
+          startDate: lastConfig.startDate,
           expiryDate: lastConfig.expiryDate,
           minOrderAmount: lastConfig.minOrderAmount,
           usageLimit: lastConfig.usageLimit,
@@ -392,9 +384,12 @@ const AdminCoupons = () => {
         });
       } else {
         setFormData({
+          couponId: '',
           code: '', 
           discountType: 'percentage', 
           discountValue: '', 
+          usageMode: 'multi',
+          startDate: '',
           expiryDate: '',
           minOrderAmount: 0, 
           usageLimit: 0, 
@@ -415,6 +410,8 @@ const AdminCoupons = () => {
         ...prev,
         discountType: lastConfig.discountType,
         discountValue: lastConfig.discountValue,
+        usageMode: lastConfig.usageMode,
+        startDate: lastConfig.startDate,
         expiryDate: lastConfig.expiryDate,
         minOrderAmount: lastConfig.minOrderAmount,
         usageLimit: lastConfig.usageLimit,
@@ -429,9 +426,12 @@ const AdminCoupons = () => {
 
   const handleClearAll = () => {
     setFormData({
+      couponId: editingId ? formData.couponId : '',
       code: '',
       discountType: 'percentage',
       discountValue: '',
+      usageMode: 'multi',
+      startDate: '',
       expiryDate: '',
       minOrderAmount: 0,
       usageLimit: 0,
@@ -452,12 +452,19 @@ const AdminCoupons = () => {
       ? formData.assignedProducts
       : ['All Products'];
 
+    let couponIdToSave = formData.couponId;
+    if (!editingId && !couponIdToSave) {
+      couponIdToSave = await generateNextCouponId(db);
+    }
+
     const dataToSave = {
       ...formData,
+      couponId: couponIdToSave || 'CPN-0001',
       code: formData.code.toUpperCase(),
       discountValue: Number(formData.discountValue),
       minOrderAmount: Number(formData.minOrderAmount) || 0,
       usageLimit: Number(formData.usageLimit) || 0,
+      usageMode: formData.usageMode || 'multi',
       assignedCategories: catArr,
       categoryIds: catArr,
       assignedCategory: catArr.join(', '),
@@ -467,11 +474,12 @@ const AdminCoupons = () => {
       updatedAt: new Date().toISOString()
     };
 
-    // Save to localStorage cache as last used settings
     try {
       localStorage.setItem('last_coupon_config', JSON.stringify({
         discountType: dataToSave.discountType,
         discountValue: dataToSave.discountValue,
+        usageMode: dataToSave.usageMode,
+        startDate: dataToSave.startDate,
         expiryDate: dataToSave.expiryDate,
         minOrderAmount: dataToSave.minOrderAmount,
         usageLimit: dataToSave.usageLimit,
@@ -487,10 +495,12 @@ const AdminCoupons = () => {
       } else {
         await addDoc(collection(db, 'coupons'), {
           ...dataToSave,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          usedCount: 0
         });
       }
       setIsModalOpen(false);
+      alert(`Coupon ${editingId ? 'updated' : 'created'} successfully! Coupon ID: ${dataToSave.couponId}`);
     } catch (err) {
       console.error("Error saving coupon", err);
       alert("Failed to save coupon");
@@ -507,7 +517,65 @@ const AdminCoupons = () => {
     await updateDoc(doc(db, 'coupons', coupon.id), { isActive: !coupon.isActive });
   };
 
-  const filteredCoupons = coupons.filter(c => (c.code || '').toLowerCase().includes(searchTerm.toLowerCase()));
+  // Helper to compute Status Badge
+  const getCouponStatusBadge = (coupon) => {
+    if (coupon.isActive === false || coupon.status === 'Disabled') {
+      return { label: 'Disabled', color: '#475569', bg: '#f1f5f9' };
+    }
+
+    if (coupon.usageMode === 'one_time' && (coupon.usedCount > 0 || coupon.redeemedAt || coupon.status === 'Expired')) {
+      return { label: 'Expired', color: '#dc2626', bg: '#fef2f2' };
+    }
+
+    if (coupon.expiryDate) {
+      const expTime = new Date(coupon.expiryDate).getTime();
+      const today = new Date().setHours(0, 0, 0, 0);
+      if (expTime < today) {
+        return { label: 'Expired', color: '#dc2626', bg: '#fef2f2' };
+      }
+    }
+
+    if (coupon.startDate) {
+      const startTime = new Date(coupon.startDate).getTime();
+      const today = new Date().setHours(0, 0, 0, 0);
+      if (startTime > today) {
+        return { label: 'Scheduled', color: '#2563eb', bg: '#eff6ff' };
+      }
+    }
+
+    if (coupon.usageLimit > 0 && (coupon.usedCount || 0) >= coupon.usageLimit) {
+      return { label: 'Expired', color: '#dc2626', bg: '#fef2f2' };
+    }
+
+    return { label: 'Active', color: '#16a34a', bg: '#dcfce7' };
+  };
+
+  // Filter & Sort Coupons
+  const processedCoupons = useMemo(() => {
+    let result = coupons.filter(c => {
+      const term = searchTerm.toLowerCase().trim();
+      const matchesSearch = 
+        (c.couponId || '').toLowerCase().includes(term) ||
+        (c.code || '').toLowerCase().includes(term) ||
+        (c.assignedCategory || '').toLowerCase().includes(term) ||
+        (c.assignedProduct || '').toLowerCase().includes(term);
+
+      if (!matchesSearch) return false;
+
+      if (selectedStatusFilter !== 'All') {
+        const badge = getCouponStatusBadge(c);
+        if (badge.label !== selectedStatusFilter) return false;
+      }
+      return true;
+    });
+
+    // Sort by Coupon ID ascending (CPN-0001, CPN-0002, ...)
+    return result.sort((a, b) => {
+      const idA = a.couponId || '';
+      const idB = b.couponId || '';
+      return idA.localeCompare(idB, undefined, { numeric: true });
+    });
+  }, [coupons, searchTerm, selectedStatusFilter]);
 
   const hasLastConfig = !!getLastCouponConfig();
 
@@ -516,7 +584,7 @@ const AdminCoupons = () => {
       <div className="admin-page-header">
         <div>
           <h1>Coupon System & Discount Manager</h1>
-          <p className="text-muted">Manage promotional codes, product/category rules, and order thresholds.</p>
+          <p className="text-muted">Manage sequential Coupon IDs, One-Time Use rules, and product discounts.</p>
         </div>
         <button className="btn-primary" onClick={() => handleOpenModal()}>
           <Plus size={18} /> Add Coupon
@@ -524,15 +592,30 @@ const AdminCoupons = () => {
       </div>
 
       <div className="card">
-        <div className="table-header">
-          <div className="search-bar">
+        <div className="table-header" style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', padding: '1rem' }}>
+          <div className="search-bar" style={{ flex: 1, minWidth: '240px' }}>
             <Search size={18} className="text-muted" />
             <input 
               type="text" 
-              placeholder="Search coupons..." 
+              placeholder="Search by Coupon ID (e.g. CPN-0001) or Code..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Filter size={16} style={{ color: '#64748b' }} />
+            <select 
+              value={selectedStatusFilter}
+              onChange={(e) => setSelectedStatusFilter(e.target.value)}
+              style={{ padding: '0.45rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none' }}
+            >
+              <option value="All">All Statuses</option>
+              <option value="Active">Active</option>
+              <option value="Expired">Expired</option>
+              <option value="Scheduled">Scheduled</option>
+              <option value="Disabled">Disabled</option>
+            </select>
           </div>
         </div>
 
@@ -540,7 +623,9 @@ const AdminCoupons = () => {
           <table className="admin-table text-xs">
             <thead>
               <tr>
+                <th>Coupon ID</th>
                 <th>Code</th>
+                <th>Mode</th>
                 <th>Discount</th>
                 <th>Min Order</th>
                 <th>Assignment</th>
@@ -550,19 +635,18 @@ const AdminCoupons = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredCoupons.length > 0 ? (
-                filteredCoupons.map((coupon) => {
+              {processedCoupons.length > 0 ? (
+                processedCoupons.map((coupon, index) => {
+                  const badge = getCouponStatusBadge(coupon);
+                  const displayId = coupon.couponId || `CPN-${String(index + 1).padStart(4, '0')}`;
+
                   const cats = Array.isArray(coupon.assignedCategories)
                     ? coupon.assignedCategories
-                    : (Array.isArray(coupon.categoryIds)
-                      ? coupon.categoryIds
-                      : (coupon.assignedCategory ? coupon.assignedCategory.split(',').map(s => s.trim()) : ['All Categories']));
+                    : (coupon.assignedCategory ? coupon.assignedCategory.split(',').map(s => s.trim()) : ['All Categories']);
 
                   const prods = Array.isArray(coupon.assignedProducts)
                     ? coupon.assignedProducts
-                    : (Array.isArray(coupon.productIds)
-                      ? coupon.productIds
-                      : (coupon.assignedProduct ? coupon.assignedProduct.split(',').map(s => s.trim()) : ['All Products']));
+                    : (coupon.assignedProduct ? coupon.assignedProduct.split(',').map(s => s.trim()) : ['All Products']);
 
                   const isAllCat = cats.length === 0 || cats.includes('All Categories');
                   const isAllProd = prods.length === 0 || prods.includes('All Products');
@@ -570,10 +654,28 @@ const AdminCoupons = () => {
                   return (
                     <tr key={coupon.id}>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <Ticket size={18} className="text-primary" />
+                        <span style={{ 
+                          fontFamily: 'monospace', 
+                          fontWeight: 700, 
+                          color: '#4f46e5', 
+                          backgroundColor: '#e0e7ff', 
+                          padding: '0.2rem 0.5rem', 
+                          borderRadius: '6px', 
+                          fontSize: '0.8rem' 
+                        }}>
+                          {displayId}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <Ticket size={16} className="text-primary" />
                           <span className="font-semibold">{coupon.code}</span>
                         </div>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: coupon.usageMode === 'one_time' ? '#9333ea' : '#0284c7' }}>
+                          {coupon.usageMode === 'one_time' ? '⚡ One-Time' : '🔄 Multi-Use'}
+                        </span>
                       </td>
                       <td>
                         {coupon.discountType === 'percentage' ? `${coupon.discountValue}% OFF` : `₹${coupon.discountValue} OFF`}
@@ -598,9 +700,20 @@ const AdminCoupons = () => {
                         {coupon.expiryDate ? new Date(coupon.expiryDate).toLocaleDateString() : 'No Expiry'}
                       </td>
                       <td>
-                        <button onClick={() => toggleStatus(coupon)} className="btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }}>
-                          {coupon.isActive ? 'Active' : 'Inactive'}
-                        </button>
+                        <span style={{ 
+                          padding: '0.2rem 0.6rem', 
+                          borderRadius: '12px', 
+                          fontSize: '0.75rem', 
+                          fontWeight: 700,
+                          color: badge.color, 
+                          backgroundColor: badge.bg,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem'
+                        }}>
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: badge.color }}></span>
+                          {badge.label}
+                        </span>
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <div className="action-buttons" style={{ justifyContent: 'flex-end' }}>
@@ -617,7 +730,7 @@ const AdminCoupons = () => {
                 })
               ) : (
                 <tr>
-                  <td colSpan="7" className="text-center text-muted" style={{ padding: '3rem' }}>
+                  <td colSpan="9" className="text-center text-muted" style={{ padding: '3rem' }}>
                     No coupons found.
                   </td>
                 </tr>
@@ -632,7 +745,9 @@ const AdminCoupons = () => {
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '650px' }}>
             <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', borderBottom: '1px solid var(--border-light, #e2e8f0)', paddingBottom: '0.75rem' }}>
               <div>
-                <h2 style={{ margin: 0, fontSize: '1.2rem' }}>{editingId ? 'Edit Coupon' : 'Create Coupon'}</h2>
+                <h2 style={{ margin: 0, fontSize: '1.2rem' }}>
+                  {editingId ? `Edit Coupon (${formData.couponId || 'CPN-#'})` : 'Create Coupon'}
+                </h2>
               </div>
               
               {!editingId && (
@@ -662,10 +777,23 @@ const AdminCoupons = () => {
             </div>
 
             <form onSubmit={handleSaveCoupon} style={{ marginTop: '1rem' }}>
-              {!editingId && hasLastConfig && (
+              {!editingId && (
                 <div style={{ padding: '0.5rem 0.75rem', backgroundColor: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '6px', fontSize: '0.78rem', color: '#3730a3', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                   <Sparkles size={14} style={{ color: '#4f46e5', flexShrink: 0 }} />
-                  <span>Auto-filled with settings from your last created coupon. (Coupon code left blank for new code)</span>
+                  <span>Sequential Coupon ID (e.g. CPN-0001) will be generated automatically upon saving.</span>
+                </div>
+              )}
+
+              {/* READ-ONLY COUPON ID FOR EDITING */}
+              {editingId && (
+                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                  <label>Sequential Coupon ID (Read-Only)</label>
+                  <input 
+                    type="text" 
+                    disabled 
+                    value={formData.couponId || 'CPN-0001'}
+                    style={{ backgroundColor: '#f1f5f9', fontWeight: 700, color: '#4f46e5', fontFamily: 'monospace' }}
+                  />
                 </div>
               )}
 
@@ -678,6 +806,36 @@ const AdminCoupons = () => {
                   onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})}
                   placeholder="e.g. WELCOME20"
                 />
+              </div>
+
+              {/* FEATURE 2: USAGE MODE (MULTI-USE VS ONE-TIME USE) */}
+              <div className="form-group" style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: '8px' }}>
+                <label style={{ fontWeight: 700, display: 'block', marginBottom: '0.5rem', color: '#6b21a8' }}>Usage Mode</label>
+                <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.88rem' }}>
+                    <input 
+                      type="radio" 
+                      name="usageMode" 
+                      value="multi"
+                      checked={formData.usageMode === 'multi'}
+                      onChange={(e) => setFormData({...formData, usageMode: e.target.value})}
+                      style={{ accentColor: '#7e22ce', width: '16px', height: '16px' }}
+                    />
+                    <span><strong>Multi-Use</strong> (Can be used multiple times)</span>
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.88rem' }}>
+                    <input 
+                      type="radio" 
+                      name="usageMode" 
+                      value="one_time"
+                      checked={formData.usageMode === 'one_time'}
+                      onChange={(e) => setFormData({...formData, usageMode: e.target.value})}
+                      style={{ accentColor: '#7e22ce', width: '16px', height: '16px' }}
+                    />
+                    <span><strong>One-Time Use</strong> (Auto-expires after 1st redemption)</span>
+                  </label>
+                </div>
               </div>
 
               <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
@@ -722,7 +880,27 @@ const AdminCoupons = () => {
                     min="0"
                     value={formData.usageLimit}
                     onChange={(e) => setFormData({...formData, usageLimit: e.target.value})}
-                    placeholder="e.g. 50 (0 for unlimited)"
+                    placeholder={formData.usageMode === 'one_time' ? '1 (One-Time)' : 'e.g. 50 (0 for unlimited)'}
+                  />
+                </div>
+              </div>
+
+              <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+                <div className="form-group">
+                  <label>Start Date (Optional)</label>
+                  <input 
+                    type="date" 
+                    value={formData.startDate}
+                    onChange={(e) => setFormData({...formData, startDate: e.target.value})}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Expiry Date</label>
+                  <input 
+                    type="date" 
+                    required
+                    value={formData.expiryDate}
+                    onChange={(e) => setFormData({...formData, expiryDate: e.target.value})}
                   />
                 </div>
               </div>
@@ -745,16 +923,6 @@ const AdminCoupons = () => {
                   onChange={(nextVals) => setFormData({...formData, assignedProducts: nextVals})}
                   placeholder="Search products..."
                   allLabel="All Products"
-                />
-              </div>
-
-              <div className="form-group" style={{ marginTop: '1rem' }}>
-                <label>Expiry Date</label>
-                <input 
-                  type="date" 
-                  required
-                  value={formData.expiryDate}
-                  onChange={(e) => setFormData({...formData, expiryDate: e.target.value})}
                 />
               </div>
 
