@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useContext, useMemo, useRef } from 'react';
-import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, runTransaction } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, runTransaction, writeBatch, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { ShopContext } from '../context/ShopContext';
-import { Ticket, Plus, Trash2, Search, Edit2, ShieldAlert, X, ChevronDown, Check, Sparkles, RotateCcw, Clock, CheckCircle2, AlertTriangle, Filter } from 'lucide-react';
+import { Ticket, Plus, Trash2, Search, Edit2, ShieldAlert, X, ChevronDown, Check, Sparkles, RotateCcw, Clock, CheckCircle2, AlertTriangle, Filter, RefreshCw } from 'lucide-react';
 
 // Atomic Sequential Coupon ID Generator (CPN-0001, CPN-0002, ...)
 const generateNextCouponId = async (firestoreDb) => {
@@ -22,6 +22,42 @@ const generateNextCouponId = async (firestoreDb) => {
   } catch (err) {
     console.error("Error generating couponId transaction:", err);
     return `CPN-${String(Math.floor(Math.random() * 8999) + 1000)}`;
+  }
+};
+
+// Reorder remaining coupons sequentially (CPN-0001, CPN-0002, ...) and reset counter
+const reorderCouponNumbers = async (firestoreDb, remainingCoupons) => {
+  if (!Array.isArray(remainingCoupons)) return;
+
+  const sorted = [...remainingCoupons].sort((a, b) => {
+    const numA = parseInt((a.couponId || '').replace(/\D/g, ''), 10) || 0;
+    const numB = parseInt((b.couponId || '').replace(/\D/g, ''), 10) || 0;
+    if (numA !== numB) return numA - numB;
+    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return timeA - timeB;
+  });
+
+  try {
+    const batch = writeBatch(firestoreDb);
+
+    sorted.forEach((coupon, index) => {
+      const newCouponId = `CPN-${String(index + 1).padStart(4, '0')}`;
+      if (coupon.couponId !== newCouponId) {
+        const couponRef = doc(firestoreDb, 'coupons', coupon.id);
+        batch.update(couponRef, { 
+          couponId: newCouponId,
+          updatedAt: new Date().toISOString()
+        });
+      }
+    });
+
+    const counterRef = doc(firestoreDb, 'system', 'counters');
+    batch.set(counterRef, { lastCouponNumber: sorted.length }, { merge: true });
+
+    await batch.commit();
+  } catch (err) {
+    console.error("Error in reorderCouponNumbers:", err);
   }
 };
 
@@ -508,8 +544,25 @@ const AdminCoupons = () => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this coupon?")) {
-      await deleteDoc(doc(db, 'coupons', id));
+    const targetCoupon = coupons.find(c => c.id === id);
+    const targetDisplay = targetCoupon ? (targetCoupon.couponId || targetCoupon.code) : '';
+
+    if (window.confirm(`Are you sure you want to delete coupon ${targetDisplay}? All remaining coupons will be automatically renumbered sequentially (CPN-0001, CPN-0002, ...).`)) {
+      try {
+        await deleteDoc(doc(db, 'coupons', id));
+        const remaining = coupons.filter(c => c.id !== id);
+        await reorderCouponNumbers(db, remaining);
+      } catch (err) {
+        console.error("Error deleting coupon:", err);
+        alert("Failed to delete coupon.");
+      }
+    }
+  };
+
+  const handleManualReorder = async () => {
+    if (window.confirm("Do you want to reorder all coupon numbers sequentially starting from CPN-0001?")) {
+      await reorderCouponNumbers(db, coupons);
+      alert("Coupon numbers reordered sequentially!");
     }
   };
 
@@ -562,18 +615,16 @@ const AdminCoupons = () => {
 
       if (!matchesSearch) return false;
 
-      if (selectedStatusFilter !== 'All') {
-        const badge = getCouponStatusBadge(c);
-        if (badge.label !== selectedStatusFilter) return false;
-      }
-      return true;
+      if (selectedStatusFilter === 'All') return true;
+
+      const badge = getCouponStatusBadge(c);
+      return badge.label.toLowerCase() === selectedStatusFilter.toLowerCase();
     });
 
-    // Sort by Coupon ID ascending (CPN-0001, CPN-0002, ...)
     return result.sort((a, b) => {
-      const idA = a.couponId || '';
-      const idB = b.couponId || '';
-      return idA.localeCompare(idB, undefined, { numeric: true });
+      const numA = parseInt((a.couponId || '').replace(/\D/g, ''), 10) || 0;
+      const numB = parseInt((b.couponId || '').replace(/\D/g, ''), 10) || 0;
+      return numA - numB;
     });
   }, [coupons, searchTerm, selectedStatusFilter]);
 
@@ -586,9 +637,19 @@ const AdminCoupons = () => {
           <h1>Coupon System & Discount Manager</h1>
           <p className="text-muted">Manage sequential Coupon IDs, One-Time Use rules, and product discounts.</p>
         </div>
-        <button className="btn-primary" onClick={() => handleOpenModal()}>
-          <Plus size={18} /> Add Coupon
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button 
+            className="btn-secondary" 
+            onClick={handleManualReorder}
+            title="Reorder all coupon numbers starting from CPN-0001"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.6rem 1rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#fff', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}
+          >
+            <RefreshCw size={16} /> Reorder Numbers
+          </button>
+          <button className="btn-primary" onClick={() => handleOpenModal()}>
+            <Plus size={18} /> Add Coupon
+          </button>
+        </div>
       </div>
 
       <div className="card">
