@@ -3,7 +3,7 @@ import { doc, getDoc, setDoc, collection, addDoc, updateDoc, deleteDoc } from 'f
 import { db } from '../firebase';
 import { ShopContext } from '../context/ShopContext';
 import { MessageCircle, Mail, Hash as Instagram, Hash as Facebook, Store, Settings, CreditCard, Shield, Globe, MapPin, Clock, Truck, FileText, Image as ImageIcon, UploadCloud, Trash2, Key, Lock, Eye, EyeOff, Plus, Edit, X, ArrowUp, ArrowDown, ExternalLink } from 'lucide-react';
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 const AdminSettings = () => {
   const { isPinVerified, verifyPin, sendPinResetLink, banners, categories, brands = [] } = useContext(ShopContext);
@@ -272,27 +272,13 @@ const AdminSettings = () => {
   };
 
   const uploadBannerImage = async (file) => {
-    return new Promise((resolve, reject) => {
-      const storage = getStorage();
-      const storageRef = ref(storage, `banners/${Date.now()}_${file.name}`);
-      const uploadTask = uploadBytesResumable(storageRef, file);
-
-      uploadTask.on(
-        'state_changed',
-        (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setBannerUploadProgress(progress);
-        },
-        (error) => {
-          console.error("Upload error:", error);
-          reject(error);
-        },
-        async () => {
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          resolve(downloadURL);
-        }
-      );
-    });
+    const storage = getStorage();
+    const safeName = file.name ? file.name.replace(/[^a-zA-Z0-9.]/g, '_') : 'video.mp4';
+    const storageRef = ref(storage, `banners/${Date.now()}_${safeName}`);
+    
+    // Using uploadBytes instead of resumable to prevent 0% hang issues on some browsers/networks
+    const snapshot = await uploadBytes(storageRef, file);
+    return await getDownloadURL(snapshot.ref);
   };
 
   const handleBannerSubmit = async (e) => {
@@ -453,6 +439,48 @@ const AdminSettings = () => {
                     </label>
                   )}
                 </div>
+                {/* HOMEPAGE IMAGE BANNER UPLOAD */}
+                <div className="form-group" style={{ marginTop: '1.5rem', padding: '1rem', border: '1px solid var(--border-light)', borderRadius: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <label style={{ fontWeight: 600, margin: 0 }}>Homepage Image Banner (Old Banner)</label>
+                    {settings.homepageVideoUrl && (
+                      <button 
+                        type="button" 
+                        className="btn-outline" 
+                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.75rem', color: '#059669', borderColor: '#059669' }}
+                        onClick={async () => {
+                          handleChange('homepageVideoUrl', '');
+                          await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: '' }, { merge: true });
+                          alert("Switched back to Image Banner! Video banner removed.");
+                        }}
+                      >
+                        Use Image Banner Instead of Video
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted" style={{ marginBottom: '1rem' }}>Upload your static image banner for the website homepage.</p>
+                  {settings.homepageBannerUrl ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                      <img src={settings.homepageBannerUrl} alt="Homepage Banner" style={{ width: '180px', height: '80px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--border-light)' }} />
+                      <div style={{ display: 'flex', gap: '0.75rem' }}>
+                        <label className="btn-outline" style={{ cursor: 'pointer', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <UploadCloud size={16} /> Replace Image Banner
+                          <input type="file" accept="image/*" onChange={(e) => handleImageFileUpload(e, 'homepageBannerUrl')} style={{ display: 'none' }} />
+                        </label>
+                        <button type="button" className="btn-secondary" style={{ color: '#DC2626', display: 'flex', alignItems: 'center', gap: '0.5rem' }} onClick={() => handleChange('homepageBannerUrl', '')}>
+                          <Trash2 size={16} /> Delete Image
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', border: '2px dashed var(--border-light)', borderRadius: '8px', cursor: 'pointer' }}>
+                      <ImageIcon size={32} className="text-muted mb-2" />
+                      <span className="text-sm font-medium">Click to Upload Homepage Image Banner</span>
+                      <span className="text-xs text-muted mt-1">PNG, JPG, WebP up to 5MB</span>
+                      <input type="file" accept="image/*" onChange={(e) => handleImageFileUpload(e, 'homepageBannerUrl')} style={{ display: 'none' }} />
+                    </label>
+                  )}
+                </div>
 
                 {/* HOMEPAGE VIDEO BANNER */}
                 <div className="form-group" style={{ marginTop: '2.5rem', padding: '1.5rem', border: '1px solid var(--border-light)', borderRadius: '8px', backgroundColor: 'var(--surface-hover)' }}>
@@ -467,11 +495,10 @@ const AdminSettings = () => {
                         <video src={settings.homepageVideoUrl} autoPlay loop muted playsInline style={{ width: '100%', height: 'auto', display: 'block' }} />
                       </div>
                       
-                      {bannerSaving && bannerUploadProgress > 0 && bannerUploadProgress < 100 && (
+                      {bannerSaving && (
                         <div style={{ width: '100%', maxWidth: '400px', marginTop: '0.5rem' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                            <span>Uploading Video...</span>
-                            <span>{Math.round(bannerUploadProgress)}%</span>
+                            <span>Uploading Video... This may take a few minutes.</span>
                           </div>
                           <div style={{ width: '100%', backgroundColor: 'var(--bg-color)', borderRadius: '4px', overflow: 'hidden' }}>
                             <div style={{ height: '6px', backgroundColor: 'var(--primary)', width: `${bannerUploadProgress}%`, transition: 'width 0.2s' }}></div>
@@ -483,24 +510,42 @@ const AdminSettings = () => {
                         <label className="btn-outline" style={{ cursor: bannerSaving ? 'not-allowed' : 'pointer', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: bannerSaving ? 0.6 : 1 }}>
                           <UploadCloud size={16} /> {bannerSaving ? 'Uploading...' : 'Replace Video'}
                           <input type="file" accept="video/*" disabled={bannerSaving} onChange={async (e) => {
-                            if (e.target.files[0]) {
+                            const file = e.target.files[0];
+                            if (file) {
+                              if (file.size > 50 * 1024 * 1024) {
+                                alert("Video is too large! Please upload a video smaller than 50MB.");
+                                return;
+                              }
                               setBannerSaving(true);
+                              setBannerUploadProgress(0);
                               try {
-                                const url = await uploadBannerImage(e.target.files[0]);
+                                const url = await uploadBannerImage(file);
                                 handleChange('homepageVideoUrl', url);
-                                // Auto-save for convenience so they don't have to click save manually
                                 await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: url }, { merge: true });
+                                alert("Video uploaded successfully!");
                               } catch (err) {
-                                alert("Failed to upload video");
+                                console.error(err);
+                                alert("Failed to upload video: " + (err.message || err.toString()));
                               } finally {
                                 setBannerSaving(false);
                               }
                             }
                           }} style={{ display: 'none' }} />
                         </label>
-                        <button type="button" className="btn-secondary" disabled={bannerSaving} style={{ color: '#DC2626', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: bannerSaving ? 0.6 : 1 }} onClick={() => handleChange('homepageVideoUrl', '')}>
+                        <button type="button" className="btn-secondary" disabled={bannerSaving} style={{ color: '#DC2626', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: bannerSaving ? 0.6 : 1 }} onClick={() => {
+                          handleChange('homepageVideoUrl', '');
+                          setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: '' }, { merge: true });
+                        }}>
                           <Trash2 size={16} /> Remove Video
                         </button>
+                      </div>
+                      
+                      <div style={{ marginTop: '1rem', width: '100%' }}>
+                        <label className="text-sm font-medium">Or Paste Direct Video URL:</label>
+                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                          <input type="text" className="form-input" placeholder="https://example.com/video.mp4" value={settings.homepageVideoUrl || ''} onChange={(e) => handleChange('homepageVideoUrl', e.target.value)} style={{ flex: 1 }} />
+                          <button type="button" className="btn-primary" onClick={() => setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: settings.homepageVideoUrl }, { merge: true })}>Save URL</button>
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -509,11 +554,10 @@ const AdminSettings = () => {
                       <span className="text-sm font-medium">{bannerSaving ? 'Uploading Video...' : 'Click to Upload Video Banner'}</span>
                       <span className="text-xs text-muted mt-1">MP4, WebM (up to 50MB recommended)</span>
                       
-                      {bannerSaving && bannerUploadProgress > 0 && bannerUploadProgress < 100 && (
+                      {bannerSaving && (
                         <div style={{ width: '80%', marginTop: '1.5rem' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                            <span>Uploading...</span>
-                            <span>{Math.round(bannerUploadProgress)}%</span>
+                            <span>Uploading Video... This may take a few minutes.</span>
                           </div>
                           <div style={{ width: '100%', backgroundColor: 'var(--surface-hover)', borderRadius: '4px', overflow: 'hidden' }}>
                             <div style={{ height: '6px', backgroundColor: 'var(--primary)', width: `${bannerUploadProgress}%`, transition: 'width 0.2s' }}></div>
@@ -522,21 +566,103 @@ const AdminSettings = () => {
                       )}
 
                       <input type="file" accept="video/*" disabled={bannerSaving} onChange={async (e) => {
-                        if (e.target.files[0]) {
+                        const file = e.target.files[0];
+                        if (file) {
+                          if (file.size > 50 * 1024 * 1024) {
+                            alert("Video is too large! Please upload a video smaller than 50MB.");
+                            return;
+                          }
                           setBannerSaving(true);
+                          setBannerUploadProgress(0);
                           try {
-                            const url = await uploadBannerImage(e.target.files[0]);
+                            const url = await uploadBannerImage(file);
                             handleChange('homepageVideoUrl', url);
-                            // Auto-save
                             await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: url }, { merge: true });
+                            alert("Video uploaded successfully!");
                           } catch (err) {
-                            alert("Failed to upload video");
+                            console.error(err);
+                            alert("Failed to upload video: " + (err.message || err.toString()));
                           } finally {
                             setBannerSaving(false);
                           }
                         }
                       }} style={{ display: 'none' }} />
                     </label>
+                    
+                    <div style={{ marginTop: '1.5rem', width: '100%', maxWidth: '500px', margin: '1.5rem auto 0 auto' }}>
+                      <label className="text-sm font-medium text-center" style={{ display: 'block', marginBottom: '0.5rem' }}>Or Paste Direct Video URL:</label>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <input type="text" className="form-input" placeholder="https://example.com/video.mp4" value={settings.homepageVideoUrl || ''} onChange={(e) => handleChange('homepageVideoUrl', e.target.value)} style={{ flex: 1 }} />
+                        <button type="button" className="btn-primary" onClick={() => setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: settings.homepageVideoUrl }, { merge: true })}>Save URL</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* BRAND MANAGEMENT SECTION */}
+                <div className="form-group" style={{ marginTop: '2.5rem', padding: '1.5rem', border: '1px solid var(--border-light)', borderRadius: '12px', backgroundColor: 'var(--bg-color)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '1.125rem' }}>Brand Management</h3>
+                      <p className="text-xs text-muted" style={{ margin: '0.25rem 0 0 0' }}>Add, edit, enable/disable, or delete product brands for your store.</p>
+                    </div>
+                    <button type="button" className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} onClick={() => handleOpenBrandModal()}>
+                      <Plus size={16} /> Add Brand
+                    </button>
+                  </div>
+
+                  {brands.length === 0 ? (
+                    <div style={{ padding: '2rem', textAlign: 'center', border: '1px dashed var(--border-light)', borderRadius: '8px', color: 'var(--text-secondary)' }}>
+                      No brands created yet. Click "+ Add Brand" above to create your first brand.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                      {brands.map((brand) => (
+                        <div key={brand.id} style={{ padding: '1rem', border: '1px solid var(--border-light)', borderRadius: '8px', backgroundColor: 'var(--surface-hover)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                {brand.logoUrl ? (
+                                  <img src={brand.logoUrl} alt={brand.name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
+                                ) : (
+                                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: 'var(--primary)', color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+                                    {brand.name.charAt(0).toUpperCase()}
+                                  </div>
+                                )}
+                                <h4 style={{ margin: 0, fontSize: '1rem' }}>{brand.name}</h4>
+                              </div>
+                              <span style={{ 
+                                padding: '0.2rem 0.5rem', 
+                                borderRadius: '12px', 
+                                fontSize: '0.75rem', 
+                                fontWeight: 600,
+                                backgroundColor: brand.isActive !== false ? '#DCFCE7' : '#FEE2E2',
+                                color: brand.isActive !== false ? '#15803D' : '#DC2626'
+                              }}>
+                                {brand.isActive !== false ? 'Active' : 'Disabled'}
+                              </span>
+                            </div>
+                            {brand.description && (
+                              <p className="text-xs text-muted" style={{ margin: '0.5rem 0 1rem 0' }}>{brand.description}</p>
+                            )}
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.75rem', borderTop: '1px solid var(--border-light)' }}>
+                            <button type="button" className="btn-outline" style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }} onClick={() => handleToggleBrandStatus(brand)}>
+                              {brand.isActive !== false ? 'Disable' : 'Enable'}
+                            </button>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <button type="button" className="btn-icon" onClick={() => handleOpenBrandModal(brand)} title="Edit Brand">
+                                <Edit size={16} />
+                              </button>
+                              <button type="button" className="btn-icon" style={{ color: '#DC2626' }} onClick={() => handleDeleteBrand(brand.id)} title="Delete Brand">
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
 
@@ -1036,6 +1162,71 @@ const AdminSettings = () => {
                   style={{ width: 'auto' }}
                 />
                 <label htmlFor="isActiveBrand" style={{ margin: 0, cursor: 'pointer' }}>Active Brand</label>
+              </div>
+
+              <div className="modal-footer" style={{ marginTop: '1.5rem' }}>
+                <button type="button" className="btn-secondary" onClick={() => setIsBrandModalOpen(false)} disabled={brandSaving}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" disabled={brandSaving}>
+                  {brandSaving ? 'Saving...' : 'Save Brand'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      {/* Brand Modal */}
+      {isBrandModalOpen && (
+        <div className="modal-overlay" onClick={() => !brandSaving && setIsBrandModalOpen(false)} style={{ zIndex: 9999 }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h2>{editingBrand ? 'Edit Brand' : 'Add New Brand'}</h2>
+              <button className="btn-icon" onClick={() => !brandSaving && setIsBrandModalOpen(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveBrand} className="modal-body">
+              <div className="form-group">
+                <label>Brand Name *</label>
+                <input 
+                  type="text" 
+                  required
+                  value={brandFormData.name} 
+                  onChange={(e) => setBrandFormData({...brandFormData, name: e.target.value})}
+                  placeholder="e.g. Noor Wall Arts"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Brand Description</label>
+                <textarea 
+                  value={brandFormData.description} 
+                  onChange={(e) => setBrandFormData({...brandFormData, description: e.target.value})}
+                  placeholder="Short description of the brand"
+                  rows="2"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Brand Logo URL</label>
+                <input 
+                  type="text" 
+                  value={brandFormData.logoUrl} 
+                  onChange={(e) => setBrandFormData({...brandFormData, logoUrl: e.target.value})}
+                  placeholder="https://example.com/logo.png"
+                />
+              </div>
+
+              <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem' }}>
+                <input 
+                  type="checkbox" 
+                  id="brandIsActive" 
+                  checked={brandFormData.isActive} 
+                  onChange={(e) => setBrandFormData({...brandFormData, isActive: e.target.checked})}
+                  style={{ width: 'auto' }}
+                />
+                <label htmlFor="brandIsActive" style={{ margin: 0, cursor: 'pointer' }}>Enable Brand</label>
               </div>
 
               <div className="modal-footer" style={{ marginTop: '1.5rem' }}>

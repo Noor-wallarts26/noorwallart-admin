@@ -182,6 +182,7 @@ const AdminCustomers = () => {
         <table className="data-table">
           <thead>
             <tr>
+              <th style={{ width: '40px', textAlign: 'center' }}>#</th>
               <th style={{ width: '60px' }}>Profile</th>
               <th>Customer</th>
               <th>Contact Details</th>
@@ -192,8 +193,9 @@ const AdminCustomers = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredCustomers.map(cust => (
-              <tr key={cust.phone} onClick={() => setSelectedCustomer(cust)} style={{ cursor: 'pointer' }} className="hover-row">
+            {filteredCustomers.map((cust, index) => (
+              <tr key={cust.id || cust.phone || index} onClick={() => setSelectedCustomer(cust)} style={{ cursor: 'pointer' }} className="hover-row">
+                <td style={{ textAlign: 'center', fontWeight: 'bold', color: 'var(--text-muted)' }}>{index + 1}</td>
                 <td>
                   <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'var(--surface-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'var(--primary)', overflow: 'hidden', border: '1px solid var(--border-light)' }}>
                     {cust.photoURL ? (
