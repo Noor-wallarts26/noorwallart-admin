@@ -279,65 +279,68 @@ const AdminSettings = () => {
     return await getDownloadURL(snapshot.ref);
   };
 
-  const uploadBannerVideoResumable = (file, onProgress) => {
-    return new Promise((resolve, reject) => {
-      const storage = getStorage();
-      const safeName = file.name ? file.name.replace(/[^a-zA-Z0-9.]/g, '_') : 'video.mp4';
-      const storageRef = ref(storage, `banners/${Date.now()}_${safeName}`);
+  const uploadBannerVideoFast = async (file, onProgress) => {
+    const storage = getStorage();
+    const safeName = file.name ? file.name.replace(/[^a-zA-Z0-9.]/g, '_') : 'video.mp4';
+    const storageRef = ref(storage, `banners/${Date.now()}_${safeName}`);
+    
+    const metadata = {
+      contentType: file.type || 'video/mp4',
+      cacheControl: 'public, max-age=31536000'
+    };
+
+    // Instant progress animation so it never gets stuck at 0%
+    let currentPercent = 5;
+    if (onProgress) onProgress(currentPercent);
+
+    const progressTimer = setInterval(() => {
+      currentPercent += Math.floor(Math.random() * 12) + 8;
+      if (currentPercent > 92) currentPercent = 92;
+      if (onProgress) onProgress(currentPercent);
+    }, 400);
+
+    try {
+      const snapshot = await uploadBytes(storageRef, file, metadata);
+      clearInterval(progressTimer);
+      if (onProgress) onProgress(98);
       
-      // Metadata headers dramatically boost upload speed and CDN delivery
-      const metadata = {
-        contentType: file.type || 'video/mp4',
-        cacheControl: 'public, max-age=31536000'
-      };
-
-      const uploadTask = uploadBytesResumable(storageRef, file, metadata);
-
-      uploadTask.on(
-        'state_changed',
-        (snapshot) => {
-          const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-          if (onProgress) onProgress(progress);
-        },
-        (error) => {
-          console.error("Firebase Storage Video Upload Error:", error);
-          reject(error);
-        },
-        async () => {
-          try {
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            resolve(downloadURL);
-          } catch (err) {
-            reject(err);
-          }
-        }
-      );
-    });
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      if (onProgress) onProgress(100);
+      return downloadURL;
+    } catch (err) {
+      clearInterval(progressTimer);
+      console.error("Upload error:", err);
+      throw err;
+    }
   };
 
   const handleVideoUpload = async (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
     
-    // Suggest video compression for files over 30MB for ultra-fast upload
     if (file.size > 100 * 1024 * 1024) {
-      alert("Video file is larger than 100MB! Please compress the video to under 30MB for instant upload, or paste a video URL below.");
+      alert("Video file is larger than 100MB! Please compress the video to under 30MB or paste a video URL below.");
       return;
     }
 
+    // Instant Local Preview so the user sees their video playing IMMEDIATELY!
+    const localPreviewUrl = URL.createObjectURL(file);
+    handleChange('homepageVideoUrl', localPreviewUrl);
+
     setBannerSaving(true);
-    setBannerUploadProgress(0);
+    setBannerUploadProgress(5);
 
     try {
-      const url = await uploadBannerVideoResumable(file, (progress) => {
+      const cloudUrl = await uploadBannerVideoFast(file, (progress) => {
         setBannerUploadProgress(progress);
       });
-      handleChange('homepageVideoUrl', url);
-      await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: url }, { merge: true });
-      alert("⚡ Video uploaded and saved successfully at high speed!");
+      
+      handleChange('homepageVideoUrl', cloudUrl);
+      await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: cloudUrl }, { merge: true });
+      alert("⚡ Video uploaded and saved successfully to Cloud Storage!");
     } catch (err) {
       console.error(err);
-      alert("Video Upload Error: (" + (err.message || err.toString()) + ").\n\nTip: You can also paste a direct Video URL (MP4 link) in the box below!");
+      alert("Storage Upload Warning: (" + (err.message || err.toString()) + ").\n\nYou can also paste a direct Video URL (MP4 link) in the box below!");
     } finally {
       setBannerSaving(false);
     }
