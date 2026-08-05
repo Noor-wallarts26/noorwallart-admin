@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext, useMemo, useRef } from 'react';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { ShopContext } from '../context/ShopContext';
-import { Ticket, Plus, Trash2, Search, Edit2, ShieldAlert, X, ChevronDown, Check } from 'lucide-react';
+import { Ticket, Plus, Trash2, Search, Edit2, ShieldAlert, X, ChevronDown, Check, Sparkles, RotateCcw } from 'lucide-react';
 
 // Custom Searchable Multi-Select Dropdown Component with Chips/Tags
 const MultiSelectDropdown = ({ 
@@ -282,9 +282,67 @@ const AdminCoupons = () => {
     return () => unsubscribe();
   }, []);
 
+  // Helper to extract configuration from the last created coupon
+  const getLastCouponConfig = () => {
+    let lastCoupon = null;
+
+    // 1. Try from localStorage cache first
+    try {
+      const cached = localStorage.getItem('last_coupon_config');
+      if (cached) {
+        lastCoupon = JSON.parse(cached);
+      }
+    } catch (e) {}
+
+    // 2. Fallback to latest item in coupons collection
+    if (!lastCoupon && Array.isArray(coupons) && coupons.length > 0) {
+      const sorted = [...coupons].sort((a, b) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : (a.updatedAt ? new Date(a.updatedAt).getTime() : 0);
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : (b.updatedAt ? new Date(b.updatedAt).getTime() : 0);
+        return timeB - timeA;
+      });
+      lastCoupon = sorted[0];
+    }
+
+    if (!lastCoupon) return null;
+
+    // Parse assignedCategories
+    let catArr = ['All Categories'];
+    if (Array.isArray(lastCoupon.assignedCategories) && lastCoupon.assignedCategories.length > 0) {
+      catArr = lastCoupon.assignedCategories;
+    } else if (Array.isArray(lastCoupon.categoryIds) && lastCoupon.categoryIds.length > 0) {
+      catArr = lastCoupon.categoryIds;
+    } else if (lastCoupon.assignedCategory && typeof lastCoupon.assignedCategory === 'string') {
+      catArr = lastCoupon.assignedCategory.split(',').map(s => s.trim()).filter(Boolean);
+      if (catArr.length === 0) catArr = ['All Categories'];
+    }
+
+    // Parse assignedProducts
+    let prodArr = ['All Products'];
+    if (Array.isArray(lastCoupon.assignedProducts) && lastCoupon.assignedProducts.length > 0) {
+      prodArr = lastCoupon.assignedProducts;
+    } else if (Array.isArray(lastCoupon.productIds) && lastCoupon.productIds.length > 0) {
+      prodArr = lastCoupon.productIds;
+    } else if (lastCoupon.assignedProduct && typeof lastCoupon.assignedProduct === 'string') {
+      prodArr = lastCoupon.assignedProduct.split(',').map(s => s.trim()).filter(Boolean);
+      if (prodArr.length === 0) prodArr = ['All Products'];
+    }
+
+    return {
+      discountType: lastCoupon.discountType || 'percentage',
+      discountValue: lastCoupon.discountValue || '',
+      expiryDate: lastCoupon.expiryDate || '',
+      minOrderAmount: lastCoupon.minOrderAmount || 0,
+      usageLimit: lastCoupon.usageLimit || 0,
+      assignedCategories: catArr,
+      assignedProducts: prodArr,
+      isActive: lastCoupon.isActive !== false
+    };
+  };
+
   const handleOpenModal = (coupon = null) => {
     if (coupon) {
-      // Parse assignedCategories
+      // Editing existing coupon
       let catArr = ['All Categories'];
       if (Array.isArray(coupon.assignedCategories) && coupon.assignedCategories.length > 0) {
         catArr = coupon.assignedCategories;
@@ -295,7 +353,6 @@ const AdminCoupons = () => {
         if (catArr.length === 0) catArr = ['All Categories'];
       }
 
-      // Parse assignedProducts
       let prodArr = ['All Products'];
       if (Array.isArray(coupon.assignedProducts) && coupon.assignedProducts.length > 0) {
         prodArr = coupon.assignedProducts;
@@ -319,20 +376,69 @@ const AdminCoupons = () => {
       });
       setEditingId(coupon.id);
     } else {
-      setFormData({
-        code: '', 
-        discountType: 'percentage', 
-        discountValue: '', 
-        expiryDate: '',
-        minOrderAmount: 0, 
-        usageLimit: 0, 
-        assignedCategories: ['All Categories'], 
-        assignedProducts: ['All Products'],
-        isActive: true
-      });
+      // Creating NEW coupon: Smart Auto-prefill with Last Used Settings!
+      const lastConfig = getLastCouponConfig();
+      if (lastConfig) {
+        setFormData({
+          code: '', // Code is ALWAYS empty for a new coupon!
+          discountType: lastConfig.discountType,
+          discountValue: lastConfig.discountValue,
+          expiryDate: lastConfig.expiryDate,
+          minOrderAmount: lastConfig.minOrderAmount,
+          usageLimit: lastConfig.usageLimit,
+          assignedCategories: lastConfig.assignedCategories,
+          assignedProducts: lastConfig.assignedProducts,
+          isActive: lastConfig.isActive
+        });
+      } else {
+        setFormData({
+          code: '', 
+          discountType: 'percentage', 
+          discountValue: '', 
+          expiryDate: '',
+          minOrderAmount: 0, 
+          usageLimit: 0, 
+          assignedCategories: ['All Categories'], 
+          assignedProducts: ['All Products'],
+          isActive: true
+        });
+      }
       setEditingId(null);
     }
     setIsModalOpen(true);
+  };
+
+  const handleUseLastSettings = () => {
+    const lastConfig = getLastCouponConfig();
+    if (lastConfig) {
+      setFormData(prev => ({
+        ...prev,
+        discountType: lastConfig.discountType,
+        discountValue: lastConfig.discountValue,
+        expiryDate: lastConfig.expiryDate,
+        minOrderAmount: lastConfig.minOrderAmount,
+        usageLimit: lastConfig.usageLimit,
+        assignedCategories: lastConfig.assignedCategories,
+        assignedProducts: lastConfig.assignedProducts,
+        isActive: lastConfig.isActive
+      }));
+    } else {
+      alert("No previous coupon configuration found.");
+    }
+  };
+
+  const handleClearAll = () => {
+    setFormData({
+      code: '',
+      discountType: 'percentage',
+      discountValue: '',
+      expiryDate: '',
+      minOrderAmount: 0,
+      usageLimit: 0,
+      assignedCategories: ['All Categories'],
+      assignedProducts: ['All Products'],
+      isActive: true
+    });
   };
 
   const handleSaveCoupon = async (e) => {
@@ -361,6 +467,20 @@ const AdminCoupons = () => {
       updatedAt: new Date().toISOString()
     };
 
+    // Save to localStorage cache as last used settings
+    try {
+      localStorage.setItem('last_coupon_config', JSON.stringify({
+        discountType: dataToSave.discountType,
+        discountValue: dataToSave.discountValue,
+        expiryDate: dataToSave.expiryDate,
+        minOrderAmount: dataToSave.minOrderAmount,
+        usageLimit: dataToSave.usageLimit,
+        assignedCategories: catArr,
+        assignedProducts: prodArr,
+        isActive: dataToSave.isActive
+      }));
+    } catch (e) {}
+
     try {
       if (editingId) {
         await updateDoc(doc(db, 'coupons', editingId), dataToSave);
@@ -388,6 +508,8 @@ const AdminCoupons = () => {
   };
 
   const filteredCoupons = coupons.filter(c => (c.code || '').toLowerCase().includes(searchTerm.toLowerCase()));
+
+  const hasLastConfig = !!getLastCouponConfig();
 
   return (
     <div className="admin-page animate-fade-in">
@@ -508,10 +630,45 @@ const AdminCoupons = () => {
       {isModalOpen && (
         <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '650px' }}>
-            <div className="modal-header">
-              <h2>{editingId ? 'Edit Coupon' : 'Create Coupon'}</h2>
+            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', borderBottom: '1px solid var(--border-light, #e2e8f0)', paddingBottom: '0.75rem' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.2rem' }}>{editingId ? 'Edit Coupon' : 'Create Coupon'}</h2>
+              </div>
+              
+              {!editingId && (
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  {hasLastConfig && (
+                    <button 
+                      type="button" 
+                      onClick={handleUseLastSettings} 
+                      className="btn-outline" 
+                      style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#4f46e5', borderColor: '#c7d2fe' }}
+                      title="Reload settings from last created coupon"
+                    >
+                      <Sparkles size={14} /> Use Last Settings
+                    </button>
+                  )}
+                  <button 
+                    type="button" 
+                    onClick={handleClearAll} 
+                    className="btn-outline" 
+                    style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#ef4444', borderColor: '#fecaca' }}
+                    title="Reset all form fields to default"
+                  >
+                    <RotateCcw size={14} /> Clear All
+                  </button>
+                </div>
+              )}
             </div>
-            <form onSubmit={handleSaveCoupon}>
+
+            <form onSubmit={handleSaveCoupon} style={{ marginTop: '1rem' }}>
+              {!editingId && hasLastConfig && (
+                <div style={{ padding: '0.5rem 0.75rem', backgroundColor: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '6px', fontSize: '0.78rem', color: '#3730a3', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <Sparkles size={14} style={{ color: '#4f46e5', flexShrink: 0 }} />
+                  <span>Auto-filled with settings from your last created coupon. (Coupon code left blank for new code)</span>
+                </div>
+              )}
+
               <div className="form-group">
                 <label>Coupon Code</label>
                 <input 
@@ -601,9 +758,16 @@ const AdminCoupons = () => {
                 />
               </div>
 
-              <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
-                <button type="button" className="btn-outline" onClick={() => setIsModalOpen(false)}>Cancel</button>
-                <button type="submit" className="btn-primary">Save Coupon</button>
+              <div className="modal-actions" style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                {!editingId && (
+                  <button type="button" className="btn-outline" onClick={handleClearAll} style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                    Reset Form
+                  </button>
+                )}
+                <div style={{ display: 'flex', gap: '0.75rem', marginLeft: 'auto' }}>
+                  <button type="button" className="btn-outline" onClick={() => setIsModalOpen(false)}>Cancel</button>
+                  <button type="submit" className="btn-primary">Save Coupon</button>
+                </div>
               </div>
             </form>
           </div>
