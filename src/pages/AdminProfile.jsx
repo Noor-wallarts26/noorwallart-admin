@@ -90,7 +90,7 @@ const AdminProfile = () => {
     );
   }
 
-  const adminEmail = user?.email || 'noorwallartsofficial@gmail.com';
+  const adminEmail = user?.email || 'noorkarts.in@gmail.com';
   const adminId = user?.uid || 'NWA-ADMIN-001';
 
   return (

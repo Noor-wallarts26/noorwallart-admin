@@ -129,7 +129,7 @@ const AdminSettings = () => {
     
     // Contact & Socials
     whatsapp: '8925325330',
-    email: 'noorwallartsofficial@gmail.com',
+    email: 'noorkarts.in@gmail.com',
     instagram: '@noor.wallarts',
     facebook: '',
     address: '',

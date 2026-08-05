@@ -6,7 +6,7 @@ import { sanitizeOrder, formatCurrency, generateBarcodeSVG, getQRCodeURL, valida
 export const generateInvoiceHTML = (rawOrder, storeSettings = {}) => {
   const order = sanitizeOrder(rawOrder);
   const logoUrl = storeSettings.logoUrl || '/logo.jpg';
-  const supportEmail = 'noorwallartsofficial@gmail.com';
+  const supportEmail = 'noorkarts.in@gmail.com';
   const supportPhone = '+91 89253 25330';
   const websiteUrl = 'www.noorwallarts.in';
   const qrUrl = getQRCodeURL(`Order:${order.id} | Customer:${order.customer.name} | Phone:${order.customer.phone} | Total:${formatCurrency(order.totalPrice)} | Date:${order.formattedDate}`);
