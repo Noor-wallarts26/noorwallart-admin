@@ -16,14 +16,17 @@ const AdminAnalytics = () => {
       if (order.status !== 'Cancelled' && order.items) {
         order.items.forEach(item => {
           // Top Products
-          if (productSales[item.id]) {
-            productSales[item.id].sales += item.quantity;
-            productSales[item.id].revenue += (item.price * item.quantity);
+          const itemKey = item.id || item.productId || item.title || 'Unknown';
+          const price = Number(item.price) || 0;
+          const qty = Number(item.quantity) || 1;
+          if (productSales[itemKey]) {
+            productSales[itemKey].sales += qty;
+            productSales[itemKey].revenue += (price * qty);
           } else {
-            productSales[item.id] = {
-              name: item.title,
-              sales: item.quantity,
-              revenue: (item.price * item.quantity)
+            productSales[itemKey] = {
+              name: item.title || 'Product',
+              sales: qty,
+              revenue: (price * qty)
             };
           }
 
