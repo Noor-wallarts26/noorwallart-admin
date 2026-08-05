@@ -82,6 +82,35 @@ export const AdminProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
+  const [brands, setBrands] = useState([]);
+  const [storeSettings, setStoreSettings] = useState({});
+
+  // Fetch brands
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "brands"), (snapshot) => {
+      const brandsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setBrands(brandsData);
+    }, (error) => {
+      console.error("Error fetching brands: ", error);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch store settings
+  useEffect(() => {
+    const unsubscribe = onSnapshot(doc(db, "settings", "storeInfo"), (docSnap) => {
+      if (docSnap.exists()) {
+        setStoreSettings(docSnap.data());
+      }
+    }, (error) => {
+      console.error("Error fetching store info: ", error);
+    });
+    return () => unsubscribe();
+  }, []);
+
   // Fetch banners
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "banners"), (snapshot) => {
@@ -185,6 +214,8 @@ export const AdminProvider = ({ children }) => {
     <ShopContext.Provider value={{
       users,
       banners,
+      brands,
+      storeSettings,
       products,
       orders,
       categories,

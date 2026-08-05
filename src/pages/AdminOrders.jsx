@@ -1,131 +1,30 @@
 import React, { useContext, useState } from 'react';
 import { ShopContext } from '../context/ShopContext';
-import { Search, Filter, Download, Check, X, Truck, Package, Printer, FileText, AlertTriangle, Trash2 } from 'lucide-react';
+import { Search, Filter, Download, Check, X, Truck, Package, Printer, FileText, Trash2, ExternalLink } from 'lucide-react';
 import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { printInvoice, printShippingLabel } from '../utils/invoiceTemplate';
+import { sanitizeOrder, formatCurrency, formatDate } from '../utils/orderUtils';
 
 const AdminOrders = () => {
-  const { orders, updateOrderStatus } = useContext(ShopContext);
+  const { orders, updateOrderStatus, storeSettings } = useContext(ShopContext);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [isWiping, setIsWiping] = useState(false);
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.id.includes(searchTerm) || 
-                          order.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          order.customer?.phone?.includes(searchTerm) ||
-                          order.transactionId?.includes(searchTerm);
+  const filteredOrders = orders.map(o => sanitizeOrder(o)).filter(order => {
+    const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          order.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          order.customer.phone.includes(searchTerm) ||
+                          order.transactionId.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'All' || order.status === statusFilter;
     return matchesSearch && matchesStatus;
-  }).sort((a, b) => b.createdAt - a.createdAt);
-
-  const formatDate = (timestamp) => {
-    if (!timestamp) return 'N/A';
-    return new Date(timestamp).toLocaleDateString('en-IN', {
-      day: 'numeric', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
-    });
-  };
+  }).sort((a, b) => b.timestamp - a.timestamp);
 
   const handleStatusChange = async (orderId, newStatus) => {
     if (updateOrderStatus) {
       await updateOrderStatus(orderId, newStatus);
     }
-  };
-
-  const handlePrintInvoice = (order) => {
-    const printWindow = window.open('', '_blank');
-    const html = `
-      <html>
-        <head>
-          <title>Invoice - ${order.id}</title>
-          <style>
-            body { font-family: 'Inter', sans-serif; padding: 40px; color: #333; }
-            .header { display: flex; justify-content: space-between; border-bottom: 2px solid #EEE; padding-bottom: 20px; margin-bottom: 20px; }
-            .logo { font-size: 24px; font-weight: bold; }
-            .invoice-details { text-align: right; }
-            .billing { display: flex; justify-content: space-between; margin-bottom: 40px; }
-            .table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-            .table th, .table td { padding: 12px; border-bottom: 1px solid #EEE; text-align: left; }
-            .table th { background-color: #F8F9FA; }
-            .totals { width: 300px; margin-left: auto; }
-            .totals-row { display: flex; justify-content: space-between; padding: 8px 0; }
-            .totals-row.grand { font-size: 18px; font-weight: bold; border-top: 2px solid #333; padding-top: 12px; }
-            .footer { margin-top: 50px; text-align: center; color: #888; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div>
-              <div class="logo">Noor Wall Arts</div>
-              <p>Email: support@noorkarts.in<br>Phone: +91 89253 25330</p>
-            </div>
-            <div class="invoice-details">
-              <h2>INVOICE</h2>
-              <p>Order #: ${order.id}<br>Date: ${formatDate(order.createdAt || order.timestamp)}</p>
-              <p>Payment: UPI (${order.transactionId || 'N/A'})</p>
-            </div>
-          </div>
-          
-          <div class="billing">
-            <div>
-              <h3>Billed To:</h3>
-              <p>
-                <strong>${order.customer?.name}</strong><br>
-                ${order.customer?.address}<br>
-                ${order.customer?.city ? order.customer.city + ',' : ''} ${order.customer?.state || ''} ${order.customer?.pincode || ''}<br>
-                Phone: ${order.customer?.phone}
-              </p>
-            </div>
-          </div>
-
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Item Description</th>
-                <th>Qty</th>
-                <th>Rate</th>
-                <th>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${order.items?.map(item => `
-                <tr>
-                  <td>${item.title}</td>
-                  <td>${item.quantity}</td>
-                  <td>₹${item.price?.toFixed(2)}</td>
-                  <td>₹${(item.price * item.quantity).toFixed(2)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-
-          <div class="totals">
-            <div class="totals-row">
-              <span>Subtotal:</span>
-              <span>₹${(order.totalPrice - (order.deliveryCharge || 80)).toFixed(2)}</span>
-            </div>
-            <div class="totals-row">
-              <span>Shipping:</span>
-              <span>₹${(order.deliveryCharge || 80).toFixed(2)}</span>
-            </div>
-            <div class="totals-row grand">
-              <span>Total Paid:</span>
-              <span>₹${order.totalPrice?.toFixed(2)}</span>
-            </div>
-          </div>
-
-          <div class="footer">
-            Thank you for shopping with Noor Wall Arts!
-          </div>
-          <script>
-            window.onload = function() { window.print(); }
-          </script>
-        </body>
-      </html>
-    `;
-    printWindow.document.write(html);
-    printWindow.document.close();
   };
 
   const wipeAllOrders = async () => {
@@ -225,13 +124,13 @@ const AdminOrders = () => {
                   </span>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => handlePrintInvoice(order)} className="btn-secondary" style={{ padding: '0.5rem', fontSize: '0.875rem' }} title="Print Invoice">
+                  <button onClick={() => printInvoice(order, storeSettings)} className="btn-secondary" style={{ padding: '0.5rem 0.75rem', fontSize: '0.875rem' }} title="Print / Download Invoice">
                     <FileText size={16} />
-                    Invoice
+                    Invoice (PDF)
                   </button>
-                  <button onClick={() => handlePrintInvoice(order)} className="btn-secondary" style={{ padding: '0.5rem', fontSize: '0.875rem' }} title="Print Shipping Label">
+                  <button onClick={() => printShippingLabel(order, storeSettings)} className="btn-secondary" style={{ padding: '0.5rem 0.75rem', fontSize: '0.875rem' }} title="Print / Download Shipping Label">
                     <Printer size={16} />
-                    Label
+                    Label (A6)
                   </button>
                 </div>
               </div>
@@ -243,19 +142,13 @@ const AdminOrders = () => {
                 <div>
                   <h4 className="font-semibold mb-4 text-muted" style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Customer & Delivery Details</h4>
                   <div style={{ marginBottom: '1rem' }}>
-                    <p className="font-semibold m-0">{order.customer?.name}</p>
-                    <p className="m-0">{order.customer?.phone}</p>
-                    {order.customer?.email && <p className="m-0 text-muted">{order.customer?.email}</p>}
+                    <p className="font-semibold m-0">{order.customer.name}</p>
+                    <p className="m-0">📞 {order.customer.phone}</p>
+                    {order.customer.email !== 'N/A' && <p className="m-0 text-muted">✉️ {order.customer.email}</p>}
                   </div>
                   
                   <div style={{ backgroundColor: 'var(--bg-color)', padding: '1rem', borderRadius: 'var(--radius-md)', fontSize: '0.875rem' }}>
-                    <p className="m-0" style={{ whiteSpace: 'pre-line' }}>{order.customer?.address}</p>
-                    {order.customer?.landmark && <p className="m-0 mt-2"><strong>Landmark:</strong> {order.customer.landmark}</p>}
-                    <p className="m-0 mt-2">
-                      {order.customer?.city && <span>{order.customer.city}, </span>}
-                      {order.customer?.state && <span>{order.customer.state} </span>}
-                      {order.customer?.pincode && <strong>{order.customer.pincode}</strong>}
-                    </p>
+                    <p className="m-0" style={{ whiteSpace: 'pre-line' }}>🏠 {order.customer.fullAddress}</p>
                   </div>
                 </div>
 
@@ -265,26 +158,20 @@ const AdminOrders = () => {
                   <div style={{ backgroundColor: 'var(--bg-color)', padding: '1rem', borderRadius: 'var(--radius-md)', fontSize: '0.875rem' }}>
                     <div className="flex justify-between mb-2">
                       <span className="text-muted">Method</span>
-                      <span className="font-semibold">UPI Online Payment</span>
+                      <span className="font-semibold">{order.paymentMethod}</span>
                     </div>
                     <div className="flex justify-between mb-2">
                       <span className="text-muted">Status</span>
-                      <span className="font-semibold text-success">Verified</span>
+                      <span className="font-semibold text-success">{order.paymentStatus}</span>
                     </div>
                     <div className="flex justify-between mb-2">
                       <span className="text-muted">Transaction ID</span>
-                      <span className="font-semibold">{order.transactionId || 'N/A'}</span>
+                      <span className="font-semibold">{order.transactionId}</span>
                     </div>
-                    {order.upiRef && (
-                      <div className="flex justify-between mb-2">
-                        <span className="text-muted">UPI Ref</span>
-                        <span className="font-semibold">{order.upiRef}</span>
-                      </div>
-                    )}
                     <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '0.75rem 0' }} />
                     <div className="flex justify-between font-semibold" style={{ fontSize: '1rem', color: 'var(--primary)' }}>
-                      <span>Total Paid</span>
-                      <span>₹{order.totalPrice?.toFixed(2)}</span>
+                      <span>Grand Total</span>
+                      <span>{formatCurrency(order.totalPrice)}</span>
                     </div>
                   </div>
                 </div>

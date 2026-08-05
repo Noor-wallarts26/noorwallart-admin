@@ -6,10 +6,90 @@ import { MessageCircle, Mail, Hash as Instagram, Hash as Facebook, Store, Settin
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 const AdminSettings = () => {
-  const { isPinVerified, verifyPin, sendPinResetLink, banners, categories } = useContext(ShopContext);
+  const { isPinVerified, verifyPin, sendPinResetLink, banners, categories, brands = [] } = useContext(ShopContext);
   const [activeTab, setActiveTab] = useState('general');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Brands State
+  const [isBrandModalOpen, setIsBrandModalOpen] = useState(false);
+  const [editingBrand, setEditingBrand] = useState(null);
+  const [brandSaving, setBrandSaving] = useState(false);
+  const [brandFormData, setBrandFormData] = useState({
+    name: '',
+    description: '',
+    logoUrl: '',
+    isActive: true
+  });
+
+  const handleOpenBrandModal = (brand = null) => {
+    setEditingBrand(brand);
+    if (brand) {
+      setBrandFormData({
+        name: brand.name || '',
+        description: brand.description || '',
+        logoUrl: brand.logoUrl || '',
+        isActive: brand.isActive !== false
+      });
+    } else {
+      setBrandFormData({
+        name: '',
+        description: '',
+        logoUrl: '',
+        isActive: true
+      });
+    }
+    setIsBrandModalOpen(true);
+  };
+
+  const handleSaveBrand = async (e) => {
+    e.preventDefault();
+    if (!brandFormData.name.trim()) {
+      alert("Please enter brand name.");
+      return;
+    }
+    setBrandSaving(true);
+    try {
+      if (editingBrand) {
+        await updateDoc(doc(db, "brands", editingBrand.id), {
+          ...brandFormData,
+          updatedAt: Date.now()
+        });
+      } else {
+        await addDoc(collection(db, "brands"), {
+          ...brandFormData,
+          createdAt: Date.now()
+        });
+      }
+      setIsBrandModalOpen(false);
+    } catch (err) {
+      console.error("Error saving brand:", err);
+      alert("Failed to save brand.");
+    } finally {
+      setBrandSaving(false);
+    }
+  };
+
+  const handleDeleteBrand = async (brandId) => {
+    if (window.confirm("Are you sure you want to delete this brand?")) {
+      try {
+        await deleteDoc(doc(db, "brands", brandId));
+      } catch (err) {
+        console.error("Error deleting brand:", err);
+        alert("Failed to delete brand.");
+      }
+    }
+  };
+
+  const handleToggleBrand = async (brand) => {
+    try {
+      await updateDoc(doc(db, "brands", brand.id), {
+        isActive: !brand.isActive
+      });
+    } catch (err) {
+      console.error("Error toggling brand status:", err);
+    }
+  };
 
   // Banners State
   const [isBannerModalOpen, setIsBannerModalOpen] = useState(false);
@@ -459,6 +539,60 @@ const AdminSettings = () => {
                     </label>
                   )}
                 </div>
+
+                {/* BRANDS MANAGEMENT SECTION */}
+                <div style={{ marginTop: '2.5rem', padding: '1.5rem', border: '1px solid var(--border-light)', borderRadius: '12px', backgroundColor: 'var(--bg-color)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '1.125rem' }}>Brand Management</h3>
+                      <p className="text-sm text-muted" style={{ margin: '0.25rem 0 0 0' }}>
+                        Add, edit, delete, and manage store brands.
+                      </p>
+                    </div>
+                    <button type="button" className="btn-primary" onClick={() => handleOpenBrandModal()} style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem' }}>
+                      <Plus size={16} /> Add Brand
+                    </button>
+                  </div>
+
+                  {brands.length === 0 ? (
+                    <div style={{ padding: '2rem', textAlign: 'center', border: '1px dashed var(--border-light)', borderRadius: '8px', color: 'var(--text-secondary)' }}>
+                      No brands created yet. Click "Add Brand" above to add your first brand.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
+                      {brands.map(b => (
+                        <div key={b.id} style={{ padding: '1rem', border: '1px solid var(--border-light)', borderRadius: '8px', backgroundColor: 'var(--surface-color)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                          <div style={{ display: 'flex', itemsCenter: 'center', gap: '0.75rem' }}>
+                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', border: '1px solid var(--border-light)', overflow: 'hidden', backgroundColor: '#FFF', flexShrink: 0 }}>
+                              <img src={b.logoUrl || '/logo.jpg'} alt={b.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError="this.src='/logo.jpg'" />
+                            </div>
+                            <div style={{ flex: 1, overflow: 'hidden' }}>
+                              <h4 style={{ margin: 0, fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.name}</h4>
+                              <span style={{ fontSize: '0.75rem', color: b.isActive !== false ? '#16A34A' : '#DC2626', fontWeight: 600 }}>
+                                {b.isActive !== false ? '● Active' : '○ Disabled'}
+                              </span>
+                            </div>
+                          </div>
+                          {b.description && <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{b.description}</p>}
+                          
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-light)', paddingTop: '0.5rem', marginTop: 'auto' }}>
+                            <button type="button" style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }} onClick={() => handleToggleBrand(b)}>
+                              {b.isActive !== false ? 'Disable' : 'Enable'}
+                            </button>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <button type="button" style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }} onClick={() => handleOpenBrandModal(b)} title="Edit Brand">
+                                <Edit size={16} />
+                              </button>
+                              <button type="button" style={{ background: 'none', border: 'none', color: '#DC2626', cursor: 'pointer' }} onClick={() => handleDeleteBrand(b.id)} title="Delete Brand">
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -647,12 +781,54 @@ const AdminSettings = () => {
             {/* ADVANCED TAB */}
             {activeTab === 'advanced' && (
               <div className="animate-fade-in">
-                <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.125rem' }}><Settings size={20} className="text-muted" /> Advanced Settings</h3>
-                <div className="form-group">
-                  <label>Maintenance Mode</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
-                    <span className="text-muted text-sm">Store is live and accepting orders</span>
+                <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.125rem' }}>
+                  <Settings size={20} className="text-muted" /> Advanced System Settings
+                </h3>
+
+                {/* MAINTENANCE MODE TOGGLE CARD */}
+                <div style={{ padding: '1.5rem', border: '1px solid var(--border-light)', borderRadius: '12px', backgroundColor: settings.maintenanceMode ? '#FEF2F2' : '#F0FDF4', marginBottom: '1.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '1.1rem', color: settings.maintenanceMode ? '#991B1B' : '#166534', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Shield size={20} />
+                        Maintenance Mode: {settings.maintenanceMode ? 'ACTIVE (ON)' : 'DISABLED (OFF)'}
+                      </h4>
+                      <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem', color: settings.maintenanceMode ? '#7F1D1D' : '#15803D' }}>
+                        {settings.maintenanceMode 
+                          ? '⚠️ Public website is currently displaying Maintenance Page to customers. Admin panel remains fully accessible.' 
+                          : '✅ Public website is live and operational. Customers can browse and place orders normally.'}
+                      </p>
+                    </div>
+
+                    <label style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer', gap: '0.75rem' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={!!settings.maintenanceMode} 
+                        onChange={async (e) => {
+                          const isChecked = e.target.checked;
+                          handleChange('maintenanceMode', isChecked);
+                          try {
+                            await setDoc(doc(db, 'settings', 'storeInfo'), { maintenanceMode: isChecked }, { merge: true });
+                            alert(`Maintenance Mode turned ${isChecked ? 'ON (Active)' : 'OFF (Store Live)'}! Setting saved permanently.`);
+                          } catch (err) {
+                            console.error("Error toggling maintenance mode:", err);
+                            alert("Failed to update Maintenance Mode.");
+                          }
+                        }}
+                        style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                      />
+                      <span style={{ fontWeight: 700, fontSize: '1rem', color: settings.maintenanceMode ? '#DC2626' : '#16A34A' }}>
+                        {settings.maintenanceMode ? 'TURN OFF' : 'TURN ON'}
+                      </span>
+                    </label>
                   </div>
+                </div>
+
+                <div className="form-group" style={{ marginTop: '1.5rem' }}>
+                  <label>Store Status</label>
+                  <p className="text-muted text-sm" style={{ marginTop: '0.25rem' }}>
+                    Store setting changes take effect immediately across customer website and admin panel.
+                  </p>
                 </div>
               </div>
             )}
@@ -789,6 +965,85 @@ const AdminSettings = () => {
                 </button>
                 <button type="submit" className="btn-primary" disabled={bannerSaving}>
                   {bannerSaving ? 'Saving...' : 'Save Banner'}
+                </button>
+              </div>
+      {/* Brand Modal */}
+      {isBrandModalOpen && (
+        <div className="modal-overlay" onClick={() => !brandSaving && setIsBrandModalOpen(false)} style={{ zIndex: 9999 }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h2>{editingBrand ? 'Edit Brand' : 'Add New Brand'}</h2>
+              <button className="btn-icon" onClick={() => !brandSaving && setIsBrandModalOpen(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveBrand} className="modal-body">
+              <div className="form-group">
+                <label>Brand Name *</label>
+                <input 
+                  type="text" 
+                  value={brandFormData.name} 
+                  onChange={(e) => setBrandFormData({...brandFormData, name: e.target.value})}
+                  placeholder="e.g. Noor Crafts, Royal Art"
+                  required
+                />
+              </div>
+
+              <div className="form-group" style={{ marginTop: '1rem' }}>
+                <label>Brand Description</label>
+                <textarea 
+                  value={brandFormData.description} 
+                  onChange={(e) => setBrandFormData({...brandFormData, description: e.target.value})}
+                  placeholder="Brief description of the brand..."
+                  rows="3"
+                />
+              </div>
+
+              <div className="form-group" style={{ marginTop: '1rem' }}>
+                <label>Brand Logo Image Upload / URL</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {brandFormData.logoUrl && (
+                    <img src={brandFormData.logoUrl} alt="Logo Preview" style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-light)' }} onError="this.src='/logo.jpg'" />
+                  )}
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={async (e) => {
+                      if (e.target.files[0]) {
+                        setBrandSaving(true);
+                        try {
+                          const url = await uploadBannerImage(e.target.files[0]);
+                          setBrandFormData(prev => ({ ...prev, logoUrl: url }));
+                        } catch (err) {
+                          alert("Failed to upload brand logo.");
+                        } finally {
+                          setBrandSaving(false);
+                        }
+                      }
+                    }}
+                    style={{ fontSize: '0.875rem' }}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group" style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input 
+                  type="checkbox" 
+                  id="isActiveBrand" 
+                  checked={brandFormData.isActive} 
+                  onChange={(e) => setBrandFormData({...brandFormData, isActive: e.target.checked})}
+                  style={{ width: 'auto' }}
+                />
+                <label htmlFor="isActiveBrand" style={{ margin: 0, cursor: 'pointer' }}>Active Brand</label>
+              </div>
+
+              <div className="modal-footer" style={{ marginTop: '1.5rem' }}>
+                <button type="button" className="btn-secondary" onClick={() => setIsBrandModalOpen(false)} disabled={brandSaving}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" disabled={brandSaving}>
+                  {brandSaving ? 'Saving...' : 'Save Brand'}
                 </button>
               </div>
             </form>
