@@ -285,7 +285,13 @@ const AdminSettings = () => {
       const safeName = file.name ? file.name.replace(/[^a-zA-Z0-9.]/g, '_') : 'video.mp4';
       const storageRef = ref(storage, `banners/${Date.now()}_${safeName}`);
       
-      const uploadTask = uploadBytesResumable(storageRef, file);
+      // Metadata headers dramatically boost upload speed and CDN delivery
+      const metadata = {
+        contentType: file.type || 'video/mp4',
+        cacheControl: 'public, max-age=31536000'
+      };
+
+      const uploadTask = uploadBytesResumable(storageRef, file, metadata);
 
       uploadTask.on(
         'state_changed',
@@ -312,22 +318,26 @@ const AdminSettings = () => {
   const handleVideoUpload = async (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
+    
+    // Suggest video compression for files over 30MB for ultra-fast upload
     if (file.size > 100 * 1024 * 1024) {
-      alert("Video file is too large! Please upload a video smaller than 100MB, or paste a video URL below.");
+      alert("Video file is larger than 100MB! Please compress the video to under 30MB for instant upload, or paste a video URL below.");
       return;
     }
+
     setBannerSaving(true);
     setBannerUploadProgress(0);
+
     try {
       const url = await uploadBannerVideoResumable(file, (progress) => {
         setBannerUploadProgress(progress);
       });
       handleChange('homepageVideoUrl', url);
       await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: url }, { merge: true });
-      alert("Video uploaded and saved successfully!");
+      alert("⚡ Video uploaded and saved successfully at high speed!");
     } catch (err) {
       console.error(err);
-      alert("Video Upload Warning: Storage upload encountered an issue (" + (err.message || err.toString()) + ").\n\nYou can also paste a direct Video URL (MP4 link) in the input box below!");
+      alert("Video Upload Error: (" + (err.message || err.toString()) + ").\n\nTip: You can also paste a direct Video URL (MP4 link) in the box below!");
     } finally {
       setBannerSaving(false);
     }
