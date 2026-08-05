@@ -281,6 +281,42 @@ const AdminSettings = () => {
     return await getDownloadURL(snapshot.ref);
   };
 
+  const handleVideoUpload = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) {
+      alert("Video is too large! Please upload a video smaller than 50MB.");
+      return;
+    }
+    setBannerSaving(true);
+    setBannerUploadProgress(0);
+    try {
+      const url = await uploadBannerImage(file);
+      handleChange('homepageVideoUrl', url);
+      await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: url }, { merge: true });
+      alert("Video uploaded successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to upload video: " + (err.message || err.toString()));
+    } finally {
+      setBannerSaving(false);
+    }
+  };
+
+  const handleBrandLogoUpload = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    setBrandSaving(true);
+    try {
+      const url = await uploadBannerImage(file);
+      setBrandFormData(prev => ({ ...prev, logoUrl: url }));
+    } catch (err) {
+      alert("Failed to upload brand logo.");
+    } finally {
+      setBrandSaving(false);
+    }
+  };
+
   const handleBannerSubmit = async (e) => {
     e.preventDefault();
     
@@ -509,28 +545,7 @@ const AdminSettings = () => {
                       <div style={{ display: 'flex', gap: '0.75rem' }}>
                         <label className="btn-outline" style={{ cursor: bannerSaving ? 'not-allowed' : 'pointer', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: bannerSaving ? 0.6 : 1 }}>
                           <UploadCloud size={16} /> {bannerSaving ? 'Uploading...' : 'Replace Video'}
-                          <input type="file" accept="video/*" disabled={bannerSaving} onChange={async (e) => {
-                            const file = e.target.files[0];
-                            if (file) {
-                              if (file.size > 50 * 1024 * 1024) {
-                                alert("Video is too large! Please upload a video smaller than 50MB.");
-                                return;
-                              }
-                              setBannerSaving(true);
-                              setBannerUploadProgress(0);
-                              try {
-                                const url = await uploadBannerImage(file);
-                                handleChange('homepageVideoUrl', url);
-                                await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: url }, { merge: true });
-                                alert("Video uploaded successfully!");
-                              } catch (err) {
-                                console.error(err);
-                                alert("Failed to upload video: " + (err.message || err.toString()));
-                              } finally {
-                                setBannerSaving(false);
-                              }
-                            }
-                          }} style={{ display: 'none' }} />
+                          <input type="file" accept="video/*" disabled={bannerSaving} onChange={handleVideoUpload} style={{ display: 'none' }} />
                         </label>
                         <button type="button" className="btn-secondary" disabled={bannerSaving} style={{ color: '#DC2626', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: bannerSaving ? 0.6 : 1 }} onClick={() => {
                           handleChange('homepageVideoUrl', '');
@@ -565,28 +580,7 @@ const AdminSettings = () => {
                         </div>
                       )}
 
-                      <input type="file" accept="video/*" disabled={bannerSaving} onChange={async (e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                          if (file.size > 50 * 1024 * 1024) {
-                            alert("Video is too large! Please upload a video smaller than 50MB.");
-                            return;
-                          }
-                          setBannerSaving(true);
-                          setBannerUploadProgress(0);
-                          try {
-                            const url = await uploadBannerImage(file);
-                            handleChange('homepageVideoUrl', url);
-                            await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: url }, { merge: true });
-                            alert("Video uploaded successfully!");
-                          } catch (err) {
-                            console.error(err);
-                            alert("Failed to upload video: " + (err.message || err.toString()));
-                          } finally {
-                            setBannerSaving(false);
-                          }
-                        }
-                      }} style={{ display: 'none' }} />
+                      <input type="file" accept="video/*" disabled={bannerSaving} onChange={handleVideoUpload} style={{ display: 'none' }} />
                     </label>
                     
                     <div style={{ marginTop: '1.5rem', width: '100%', maxWidth: '500px', margin: '1.5rem auto 0 auto' }}>
@@ -1073,19 +1067,7 @@ const AdminSettings = () => {
                   <input 
                     type="file" 
                     accept="image/*" 
-                    onChange={async (e) => {
-                      if (e.target.files[0]) {
-                        setBrandSaving(true);
-                        try {
-                          const url = await uploadBannerImage(e.target.files[0]);
-                          setBrandFormData(prev => ({ ...prev, logoUrl: url }));
-                        } catch (err) {
-                          alert("Failed to upload brand logo.");
-                        } finally {
-                          setBrandSaving(false);
-                        }
-                      }
-                    }}
+                    onChange={handleBrandLogoUpload}
                     style={{ fontSize: '0.875rem' }}
                   />
                 </div>
