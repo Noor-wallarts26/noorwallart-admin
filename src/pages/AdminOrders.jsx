@@ -230,9 +230,9 @@ const AdminOrders = () => {
                               <span className="font-medium">{item.title}</span>
                             </div>
                           </td>
-                          <td>₹{item.price?.toFixed(2)}</td>
+                          <td>{formatCurrency(item.price)}</td>
                           <td>{item.quantity}</td>
-                          <td className="font-semibold">₹{(item.price * item.quantity).toFixed(2)}</td>
+                          <td className="font-semibold">{formatCurrency((Number(item.price) || 0) * (Number(item.quantity) || 1))}</td>
                         </tr>
                       ))}
                     </tbody>
