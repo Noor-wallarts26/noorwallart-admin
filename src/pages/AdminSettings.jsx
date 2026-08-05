@@ -600,73 +600,6 @@ const AdminSettings = () => {
                 </div>
 
                 {/* BRAND MANAGEMENT SECTION */}
-                <div className="form-group" style={{ marginTop: '2.5rem', padding: '1.5rem', border: '1px solid var(--border-light)', borderRadius: '12px', backgroundColor: 'var(--bg-color)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <div>
-                      <h3 style={{ margin: 0, fontSize: '1.125rem' }}>Brand Management</h3>
-                      <p className="text-xs text-muted" style={{ margin: '0.25rem 0 0 0' }}>Add, edit, enable/disable, or delete product brands for your store.</p>
-                    </div>
-                    <button type="button" className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} onClick={() => handleOpenBrandModal()}>
-                      <Plus size={16} /> Add Brand
-                    </button>
-                  </div>
-
-                  {brands.length === 0 ? (
-                    <div style={{ padding: '2rem', textAlign: 'center', border: '1px dashed var(--border-light)', borderRadius: '8px', color: 'var(--text-secondary)' }}>
-                      No brands created yet. Click "+ Add Brand" above to create your first brand.
-                    </div>
-                  ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
-                      {brands.map((brand) => (
-                        <div key={brand.id} style={{ padding: '1rem', border: '1px solid var(--border-light)', borderRadius: '8px', backgroundColor: 'var(--surface-hover)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                          <div>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                {brand.logoUrl ? (
-                                  <img src={brand.logoUrl} alt={brand.name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
-                                ) : (
-                                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: 'var(--primary)', color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
-                                    {brand.name.charAt(0).toUpperCase()}
-                                  </div>
-                                )}
-                                <h4 style={{ margin: 0, fontSize: '1rem' }}>{brand.name}</h4>
-                              </div>
-                              <span style={{ 
-                                padding: '0.2rem 0.5rem', 
-                                borderRadius: '12px', 
-                                fontSize: '0.75rem', 
-                                fontWeight: 600,
-                                backgroundColor: brand.isActive !== false ? '#DCFCE7' : '#FEE2E2',
-                                color: brand.isActive !== false ? '#15803D' : '#DC2626'
-                              }}>
-                                {brand.isActive !== false ? 'Active' : 'Disabled'}
-                              </span>
-                            </div>
-                            {brand.description && (
-                              <p className="text-xs text-muted" style={{ margin: '0.5rem 0 1rem 0' }}>{brand.description}</p>
-                            )}
-                          </div>
-
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.75rem', borderTop: '1px solid var(--border-light)' }}>
-                            <button type="button" className="btn-outline" style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }} onClick={() => handleToggleBrandStatus(brand)}>
-                              {brand.isActive !== false ? 'Disable' : 'Enable'}
-                            </button>
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                              <button type="button" className="btn-icon" onClick={() => handleOpenBrandModal(brand)} title="Edit Brand">
-                                <Edit size={16} />
-                              </button>
-                              <button type="button" className="btn-icon" style={{ color: '#DC2626' }} onClick={() => handleDeleteBrand(brand.id)} title="Delete Brand">
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* BRANDS MANAGEMENT SECTION */}
                 <div style={{ marginTop: '2.5rem', padding: '1.5rem', border: '1px solid var(--border-light)', borderRadius: '12px', backgroundColor: 'var(--bg-color)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                     <div>
@@ -688,9 +621,9 @@ const AdminSettings = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
                       {brands.map(b => (
                         <div key={b.id} style={{ padding: '1rem', border: '1px solid var(--border-light)', borderRadius: '8px', backgroundColor: 'var(--surface-color)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                          <div style={{ display: 'flex', itemsCenter: 'center', gap: '0.75rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                             <div style={{ width: '40px', height: '40px', borderRadius: '50%', border: '1px solid var(--border-light)', overflow: 'hidden', backgroundColor: '#FFF', flexShrink: 0 }}>
-                              <img src={b.logoUrl || '/logo.jpg'} alt={b.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError="this.src='/logo.jpg'" />
+                              <img src={b.logoUrl || '/logo.jpg'} alt={b.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => e.target.src='/logo.jpg'} />
                             </div>
                             <div style={{ flex: 1, overflow: 'hidden' }}>
                               <h4 style={{ margin: 0, fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.name}</h4>
