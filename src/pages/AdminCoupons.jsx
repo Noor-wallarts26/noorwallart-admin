@@ -559,10 +559,23 @@ const AdminCoupons = () => {
     }
   };
 
-  const handleManualReorder = async () => {
-    if (window.confirm("Do you want to reorder all coupon numbers sequentially starting from CPN-0001?")) {
+  const [isResettingNumbering, setIsResettingNumbering] = useState(false);
+
+  const handleResetCouponNumbering = async () => {
+    const confirmReset = window.confirm(
+      "Are you sure you want to reset all coupon numbering? This action will renumber every coupon sequentially starting from CPN-0001."
+    );
+    if (!confirmReset) return;
+
+    setIsResettingNumbering(true);
+    try {
       await reorderCouponNumbers(db, coupons);
-      alert("Coupon numbers reordered sequentially!");
+      alert("Coupon numbering has been reset successfully.");
+    } catch (err) {
+      console.error("Error resetting coupon numbering:", err);
+      alert("Failed to reset coupon numbering.");
+    } finally {
+      setIsResettingNumbering(false);
     }
   };
 
@@ -637,14 +650,16 @@ const AdminCoupons = () => {
           <h1>Coupon System & Discount Manager</h1>
           <p className="text-muted">Manage sequential Coupon IDs, One-Time Use rules, and product discounts.</p>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button 
             className="btn-secondary" 
-            onClick={handleManualReorder}
-            title="Reorder all coupon numbers starting from CPN-0001"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.6rem 1rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#fff', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}
+            onClick={handleResetCouponNumbering}
+            disabled={isResettingNumbering}
+            title="Reset all coupon numbering sequentially starting from CPN-0001"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.6rem 1rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#fff', color: '#334155', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}
           >
-            <RefreshCw size={16} /> Reorder Numbers
+            <RotateCcw size={16} className={isResettingNumbering ? 'animate-spin' : ''} />
+            {isResettingNumbering ? 'Resetting...' : 'Reset Coupon Numbering'}
           </button>
           <button className="btn-primary" onClick={() => handleOpenModal()}>
             <Plus size={18} /> Add Coupon
