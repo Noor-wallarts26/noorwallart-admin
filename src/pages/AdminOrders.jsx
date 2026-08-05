@@ -10,15 +10,21 @@ const AdminOrders = () => {
   const { orders, updateOrderStatus, storeSettings } = useContext(ShopContext);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [paymentFilter, setPaymentFilter] = useState('All');
   const [isWiping, setIsWiping] = useState(false);
 
   const filteredOrders = orders.map(o => sanitizeOrder(o)).filter(order => {
     const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           order.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           order.customer.phone.includes(searchTerm) ||
-                          order.transactionId.toLowerCase().includes(searchTerm.toLowerCase());
+                          order.transactionId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          order.razorpayOrderId.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'All' || order.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesPayment = paymentFilter === 'All' || 
+                           (paymentFilter === 'Paid' && order.paymentStatus.toLowerCase().includes('paid')) ||
+                           (paymentFilter === 'Pending' && order.paymentStatus.toLowerCase().includes('pending')) ||
+                           (paymentFilter === 'Failed' && order.paymentStatus.toLowerCase().includes('failed'));
+    return matchesSearch && matchesStatus && matchesPayment;
   }).sort((a, b) => b.timestamp - a.timestamp);
 
   const handleStatusChange = async (orderId, newStatus) => {
@@ -88,7 +94,7 @@ const AdminOrders = () => {
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
-                <option value="All">All Status</option>
+                <option value="All">All Order Status</option>
                 <option value="Pending">Pending</option>
                 <option value="Accepted">Accepted</option>
                 <option value="Processing">Processing</option>
@@ -96,6 +102,17 @@ const AdminOrders = () => {
                 <option value="Shipped">Shipped</option>
                 <option value="Delivered">Delivered</option>
                 <option value="Cancelled">Cancelled</option>
+              </select>
+              <select 
+                className="form-group" 
+                style={{ marginBottom: 0, padding: '0.5rem 1rem' }}
+                value={paymentFilter}
+                onChange={(e) => setPaymentFilter(e.target.value)}
+              >
+                <option value="All">All Payment Status</option>
+                <option value="Paid">Paid</option>
+                <option value="Pending">Pending</option>
+                <option value="Failed">Failed</option>
               </select>
             </div>
           </div>

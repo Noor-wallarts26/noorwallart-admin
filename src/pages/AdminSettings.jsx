@@ -790,9 +790,22 @@ const AdminSettings = () => {
                       </div>
                     </div>
 
+                    {/* RAZORPAY KEY ID INPUT */}
+                    <div className="form-group mb-4">
+                      <label style={{ fontWeight: 600 }}>Razorpay Key ID (Live / Test)</label>
+                      <input 
+                        type="text" 
+                        value={settings.razorpayKeyId || ''} 
+                        onChange={e => handleChange('razorpayKeyId', e.target.value)} 
+                        placeholder="e.g. rzp_live_xxxxxxxxxxxxxx or rzp_test_xxxxxxxxxxxxxx" 
+                        style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-light)' }}
+                      />
+                      <p className="text-muted text-xs mt-1">This key connects your website directly to your Razorpay merchant account.</p>
+                    </div>
+
                     {/* UPI ID INPUT */}
                     <div className="form-group">
-                      <label style={{ fontWeight: 600 }}>UPI ID (VPA)</label>
+                      <label style={{ fontWeight: 600 }}>UPI ID (VPA - Optional Fallback)</label>
                       <input 
                         type="text" 
                         value={settings.upiId || ''} 
@@ -800,7 +813,6 @@ const AdminSettings = () => {
                         placeholder="e.g. noorarts@ybl" 
                         style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-light)' }}
                       />
-                      <p className="text-muted text-xs mt-1">This UPI ID is displayed on customer checkout page for QR payment.</p>
                     </div>
 
                     {/* QR CODE IMAGE UPLOAD & PREVIEW */}
