@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { ShopContext } from '../context/ShopContext';
@@ -10,6 +10,37 @@ const AdminCoupons = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Dynamically load every category from database (both categories collection and existing product categories)
+  const categoryOptions = useMemo(() => {
+    const catSet = new Set();
+
+    if (Array.isArray(categories)) {
+      categories.forEach(c => {
+        const catName = typeof c === 'string' ? c : (c?.name || c?.title || c?.category);
+        if (catName && typeof catName === 'string' && catName.trim()) {
+          catSet.add(catName.trim());
+        }
+      });
+    }
+
+    if (Array.isArray(products)) {
+      products.forEach(p => {
+        if (p?.category && typeof p.category === 'string' && p.category.trim()) {
+          catSet.add(p.category.trim());
+        }
+        if (Array.isArray(p?.categories)) {
+          p.categories.forEach(cat => {
+            if (cat && typeof cat === 'string' && cat.trim()) {
+              catSet.add(cat.trim());
+            }
+          });
+        }
+      });
+    }
+
+    return Array.from(catSet).sort((a, b) => a.localeCompare(b));
+  }, [categories, products]);
+
   const [formData, setFormData] = useState({
     code: '',
     discountType: 'percentage', // percentage or flat
@@ -256,7 +287,9 @@ const AdminCoupons = () => {
                   <label>Assigned Category</label>
                   <select value={formData.assignedCategory} onChange={e => setFormData({...formData, assignedCategory: e.target.value})}>
                     <option value="All Categories">All Categories</option>
-                    {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    {categoryOptions.map(catName => (
+                      <option key={catName} value={catName}>{catName}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="form-group">
