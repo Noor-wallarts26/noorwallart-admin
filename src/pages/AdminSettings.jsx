@@ -280,119 +280,86 @@ const AdminSettings = () => {
   };
 
   const uploadBannerVideoFast = async (file, onProgress) => {
-    // Strategy 1: Try Cloudinary Unsigned Upload first (Instant 1-5s upload)
+    let currentPct = 20;
+    if (onProgress) onProgress(currentPct);
+
+    const interval = setInterval(() => {
+      currentPct += 15;
+      if (currentPct > 90) currentPct = 90;
+      if (onProgress) onProgress(currentPct);
+    }, 300);
+
+    // Method 1: Cloudinary Unsigned Direct Upload
     try {
-      const cloudinaryUrl = await new Promise((resolve, reject) => {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('upload_preset', 'ml_default');
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', 'ml_default');
 
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', 'https://api.cloudinary.com/v1_1/demo/video/upload', true);
-
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable && onProgress) {
-            const pct = Math.round((e.loaded / e.total) * 100);
-            onProgress(pct >= 100 ? 99 : pct);
-          }
-        };
-
-        xhr.onload = () => {
-          if (xhr.status === 200) {
-            try {
-              const res = JSON.parse(xhr.responseText);
-              if (res.secure_url) {
-                resolve(res.secure_url);
-                return;
-              }
-            } catch (e) {}
-          }
-          reject(new Error("Cloudinary status " + xhr.status));
-        };
-
-        xhr.onerror = () => reject(new Error("Cloudinary error"));
-        xhr.timeout = 20000;
-        xhr.ontimeout = () => reject(new Error("Cloudinary timeout"));
-
-        xhr.send(formData);
+      const res = await fetch('https://api.cloudinary.com/v1_1/demo/video/upload', {
+        method: 'POST',
+        body: formData
       });
 
-      if (cloudinaryUrl) return cloudinaryUrl;
-    } catch (cErr) {
-      console.warn("Cloudinary upload fallback to Firebase Storage:", cErr);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.secure_url) {
+          clearInterval(interval);
+          if (onProgress) onProgress(100);
+          return data.secure_url;
+        }
+      }
+    } catch (e) {
+      console.warn("Cloudinary upload fallback:", e);
     }
 
-    // Strategy 2: Firebase Storage with fast uploadBytes and 12s safety timeout
-    const storage = getStorage();
-    const safeName = file.name ? file.name.replace(/[^a-zA-Z0-9.]/g, '_') : 'video.mp4';
-    const storageRef = ref(storage, `banners/${Date.now()}_${safeName}`);
-    
-    const metadata = {
-      contentType: file.type || 'video/mp4',
-      cacheControl: 'public, max-age=31536000'
-    };
+    // Method 2: Firebase Storage Upload
+    try {
+      const storage = getStorage();
+      const safeName = file.name ? file.name.replace(/[^a-zA-Z0-9.]/g, '_') : 'video.mp4';
+      const storageRef = ref(storage, `banners/${Date.now()}_${safeName}`);
+      const metadata = { contentType: file.type || 'video/mp4', cacheControl: 'public, max-age=31536000' };
 
-    let currentPercent = 15;
-    if (onProgress) onProgress(currentPercent);
-
-    const progressTimer = setInterval(() => {
-      currentPercent += 15;
-      if (currentPercent > 95) currentPercent = 95;
-      if (onProgress) onProgress(currentPercent);
-    }, 400);
-
-    const firebaseUploadPromise = uploadBytes(storageRef, file, metadata).then(async (snapshot) => {
-      clearInterval(progressTimer);
+      const snapshot = await uploadBytes(storageRef, file, metadata);
+      clearInterval(interval);
       if (onProgress) onProgress(98);
+
       const downloadURL = await getDownloadURL(snapshot.ref);
       if (onProgress) onProgress(100);
       return downloadURL;
-    });
-
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => {
-        clearInterval(progressTimer);
-        reject(new Error("Storage response timeout. Local preview saved!"));
-      }, 12000);
-    });
-
-    return await Promise.race([firebaseUploadPromise, timeoutPromise]);
+    } catch (fbErr) {
+      clearInterval(interval);
+      console.error("Firebase upload error:", fbErr);
+      throw fbErr;
+    }
   };
 
   const handleVideoUpload = async (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
-    
+
     if (file.size > 100 * 1024 * 1024) {
-      alert("Video file is larger than 100MB! Please compress the video to under 30MB or paste a video URL below.");
+      alert("Video file is larger than 100MB! Please compress the video or paste a video URL below.");
       return;
     }
 
-    // Instant local preview for immediate feedback
-    const localPreviewUrl = URL.createObjectURL(file);
-    handleChange('homepageVideoUrl', localPreviewUrl);
-
     setBannerSaving(true);
-    setBannerUploadProgress(15);
+    setBannerUploadProgress(20);
 
     try {
-      const cloudUrl = await uploadBannerVideoFast(file, (progress) => {
+      const videoUrl = await uploadBannerVideoFast(file, (progress) => {
         setBannerUploadProgress(progress);
       });
-      
+
       setBannerUploadProgress(100);
-      handleChange('homepageVideoUrl', cloudUrl);
-      
-      // Auto-save to Firestore so it immediately shows on main website!
-      await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: cloudUrl }, { merge: true });
-      alert("🎉 100% Upload Completed & Saved! Your new video banner is now live on your main website!");
+      handleChange('homepageVideoUrl', videoUrl);
+
+      // Save to Firestore 'settings/storeInfo' so main website updates instantly
+      await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: videoUrl }, { merge: true });
+      alert("🎉 100% Upload Completed & Published! Your new video banner is now live on your main website!");
     } catch (err) {
-      console.warn(err);
+      console.error(err);
       setBannerUploadProgress(100);
-      
-      // Auto-save local preview URL or existing settings
-      await setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: settings.homepageVideoUrl || localPreviewUrl }, { merge: true });
-      alert("🎉 100% Complete! Video banner saved successfully to store settings!");
+      alert("Notice: Could not upload video file to cloud storage (" + (err.message || err.toString()) + ").\n\nPlease paste a direct video link (MP4 URL) in the box below and click Save URL!");
     } finally {
       setBannerSaving(false);
     }
