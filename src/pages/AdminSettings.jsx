@@ -279,56 +279,81 @@ const AdminSettings = () => {
     return await getDownloadURL(snapshot.ref);
   };
 
+  const uploadVideoToPublicCDN = (file, onProgress) => {
+    return new Promise((resolve, reject) => {
+      const formData = new FormData();
+      formData.append('reqtype', 'fileupload');
+      formData.append('fileToUpload', file);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', 'https://catbox.moe/user/api.php', true);
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && onProgress) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          onProgress(pct >= 100 ? 98 : pct);
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status === 200 && xhr.responseText.trim().startsWith('http')) {
+          resolve(xhr.responseText.trim());
+        } else {
+          reject(new Error("CDN Upload Error: " + xhr.responseText));
+        }
+      };
+
+      xhr.onerror = () => reject(new Error("Network Error during upload"));
+      xhr.timeout = 120000;
+      xhr.ontimeout = () => reject(new Error("CDN Upload Timeout"));
+
+      xhr.send(formData);
+    });
+  };
+
   const handleVideoUpload = async (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
 
-    if (file.size > 100 * 1024 * 1024) {
-      alert("Video file is larger than 100MB! Please compress the video or paste a video URL below.");
+    if (file.size > 200 * 1024 * 1024) {
+      alert("Video file is larger than 200MB! Please select a smaller video or paste a video link below.");
       return;
     }
 
     setBannerSaving(true);
-    setBannerUploadProgress(15);
+    setBannerUploadProgress(5);
 
     try {
       let videoUrl = '';
 
-      // Progress animation
-      const progressTimer = setInterval(() => {
-        setBannerUploadProgress(prev => (prev < 90 ? prev + 25 : prev));
-      }, 300);
-
-      // If file size is under 3MB, convert directly to Base64 Data URL (0% error rate, 100% instant)
-      if (file.size <= 3 * 1024 * 1024) {
-        videoUrl = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (evt) => resolve(evt.target.result);
-          reader.onerror = () => resolve(URL.createObjectURL(file));
-          reader.readAsDataURL(file);
+      // Method 1: Catbox Public Media CDN (Permanent public HTTPS URL)
+      try {
+        videoUrl = await uploadVideoToPublicCDN(file, (progress) => {
+          setBannerUploadProgress(progress);
         });
-      } else {
-        // For larger files, attempt Firebase Storage upload with 4-second timeout & local blob fallback
+      } catch (catboxErr) {
+        console.warn("Public CDN Upload Error, trying Firebase Storage fallback...", catboxErr);
+        
+        // Method 2: Firebase Storage fallback
         try {
           const storage = getStorage();
           const safeName = file.name ? file.name.replace(/[^a-zA-Z0-9.]/g, '_') : 'video.mp4';
           const storageRef = ref(storage, `banners/${Date.now()}_${safeName}`);
+          const snap = await uploadBytes(storageRef, file, { contentType: file.type || 'video/mp4' });
+          videoUrl = await getDownloadURL(snap.ref);
+        } catch (fbErr) {
+          console.warn("Firebase Storage Error, converting to Base64...", fbErr);
           
-          const uploadPromise = uploadBytes(storageRef, file, { contentType: file.type || 'video/mp4' }).then(async (snap) => {
-            return await getDownloadURL(snap.ref);
+          // Method 3: Base64 Data URL fallback
+          videoUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (evt) => resolve(evt.target.result);
+            reader.onerror = (err) => reject(err);
+            reader.readAsDataURL(file);
           });
-
-          const timeoutPromise = new Promise((resolve) => {
-            setTimeout(() => resolve(URL.createObjectURL(file)), 4000);
-          });
-
-          videoUrl = await Promise.race([uploadPromise, timeoutPromise]);
-        } catch (err) {
-          videoUrl = URL.createObjectURL(file);
         }
       }
 
-      clearInterval(progressTimer);
       setBannerUploadProgress(100);
       handleChange('homepageVideoUrl', videoUrl);
 
@@ -339,7 +364,7 @@ const AdminSettings = () => {
     } catch (err) {
       console.error(err);
       setBannerUploadProgress(100);
-      alert("Notice: Homepage Video Banner saved to settings!");
+      alert("Notice: Could not upload video. Please paste a direct video URL (MP4 link) in the box below and click Save URL!");
     } finally {
       setBannerSaving(false);
     }
