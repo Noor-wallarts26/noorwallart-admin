@@ -564,32 +564,34 @@ const AdminSettings = () => {
                       </div>
                     </div>
                   ) : (
-                    <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem', border: '2px dashed var(--border-light)', borderRadius: '8px', cursor: bannerSaving ? 'not-allowed' : 'pointer', backgroundColor: 'var(--bg-color)', opacity: bannerSaving ? 0.6 : 1 }}>
-                      <UploadCloud size={32} className="text-muted mb-2" />
-                      <span className="text-sm font-medium">{bannerSaving ? 'Uploading Video...' : 'Click to Upload Video Banner'}</span>
-                      <span className="text-xs text-muted mt-1">MP4, WebM (up to 50MB recommended)</span>
-                      
-                      {bannerSaving && (
-                        <div style={{ width: '80%', marginTop: '1.5rem' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                            <span>Uploading Video... This may take a few minutes.</span>
+                    <>
+                      <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem', border: '2px dashed var(--border-light)', borderRadius: '8px', cursor: bannerSaving ? 'not-allowed' : 'pointer', backgroundColor: 'var(--bg-color)', opacity: bannerSaving ? 0.6 : 1 }}>
+                        <UploadCloud size={32} className="text-muted mb-2" />
+                        <span className="text-sm font-medium">{bannerSaving ? 'Uploading Video...' : 'Click to Upload Video Banner'}</span>
+                        <span className="text-xs text-muted mt-1">MP4, WebM (up to 50MB recommended)</span>
+                        
+                        {bannerSaving && (
+                          <div style={{ width: '80%', marginTop: '1.5rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                              <span>Uploading Video... This may take a few minutes.</span>
+                            </div>
+                            <div style={{ width: '100%', backgroundColor: 'var(--surface-hover)', borderRadius: '4px', overflow: 'hidden' }}>
+                              <div style={{ height: '6px', backgroundColor: 'var(--primary)', width: `${bannerUploadProgress}%`, transition: 'width 0.2s' }}></div>
+                            </div>
                           </div>
-                          <div style={{ width: '100%', backgroundColor: 'var(--surface-hover)', borderRadius: '4px', overflow: 'hidden' }}>
-                            <div style={{ height: '6px', backgroundColor: 'var(--primary)', width: `${bannerUploadProgress}%`, transition: 'width 0.2s' }}></div>
-                          </div>
-                        </div>
-                      )}
+                        )}
 
-                      <input type="file" accept="video/*" disabled={bannerSaving} onChange={handleVideoUpload} style={{ display: 'none' }} />
-                    </label>
-                    
-                    <div style={{ marginTop: '1.5rem', width: '100%', maxWidth: '500px', margin: '1.5rem auto 0 auto' }}>
-                      <label className="text-sm font-medium text-center" style={{ display: 'block', marginBottom: '0.5rem' }}>Or Paste Direct Video URL:</label>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <input type="text" className="form-input" placeholder="https://example.com/video.mp4" value={settings.homepageVideoUrl || ''} onChange={(e) => handleChange('homepageVideoUrl', e.target.value)} style={{ flex: 1 }} />
-                        <button type="button" className="btn-primary" onClick={() => setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: settings.homepageVideoUrl }, { merge: true })}>Save URL</button>
+                        <input type="file" accept="video/*" disabled={bannerSaving} onChange={handleVideoUpload} style={{ display: 'none' }} />
+                      </label>
+                      
+                      <div style={{ marginTop: '1.5rem', width: '100%', maxWidth: '500px', margin: '1.5rem auto 0 auto' }}>
+                        <label className="text-sm font-medium text-center" style={{ display: 'block', marginBottom: '0.5rem' }}>Or Paste Direct Video URL:</label>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <input type="text" className="form-input" placeholder="https://example.com/video.mp4" value={settings.homepageVideoUrl || ''} onChange={(e) => handleChange('homepageVideoUrl', e.target.value)} style={{ flex: 1 }} />
+                          <button type="button" className="btn-primary" onClick={() => setDoc(doc(db, 'settings', 'storeInfo'), { ...settings, homepageVideoUrl: settings.homepageVideoUrl }, { merge: true })}>Save URL</button>
+                        </div>
                       </div>
-                    </div>
+                    </>
                   )}
                 </div>
 
