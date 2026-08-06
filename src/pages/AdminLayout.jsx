@@ -26,7 +26,7 @@ const SIDEBAR_LINKS = [
 ];
 
 const AdminLayout = () => {
-  const { user, loading, logout, products, orders, isPinVerified, verifyPin, sendPinResetLink } = useContext(ShopContext);
+  const { user, loading, logout, products, orders, unreadNotificationsCount, isPinVerified, verifyPin, sendPinResetLink } = useContext(ShopContext);
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -234,7 +234,48 @@ const AdminLayout = () => {
               )}
             </div>
           </div>
-          <div className="admin-header-actions">
+          <div className="admin-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <Link
+              to="/notifications"
+              style={{
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                backgroundColor: 'var(--bg-color)',
+                border: '1px solid var(--border-light)',
+                color: 'var(--text-primary)',
+                transition: 'all 0.2s',
+                textDecoration: 'none'
+              }}
+              title="View Store Notifications"
+            >
+              <Bell size={20} />
+              {unreadNotificationsCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '-3px',
+                  right: '-3px',
+                  backgroundColor: '#EF4444',
+                  color: '#FFFFFF',
+                  fontSize: '0.7rem',
+                  fontWeight: 800,
+                  width: '18px',
+                  height: '18px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 4px rgba(239, 68, 68, 0.4)'
+                }}>
+                  {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                </span>
+              )}
+            </Link>
+
             <div
               className="admin-profile-btn"
               onClick={handleProfileClick}

@@ -35,6 +35,42 @@ export const AdminProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
+  const [notifications, setNotifications] = useState([]);
+
+  // Fetch notifications real-time
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, "notifications"), (snapshot) => {
+      const notifData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      notifData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      setNotifications(notifData);
+    }, (error) => {
+      console.error("Error fetching notifications: ", error);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const markNotificationAsRead = async (notifId) => {
+    try {
+      await updateDoc(doc(db, "notifications", notifId), { read: true });
+    } catch (err) {
+      console.error("Error marking notification as read:", err);
+    }
+  };
+
+  const markAllNotificationsAsRead = async () => {
+    try {
+      const unreadList = notifications.filter(n => !n.read);
+      for (const n of unreadList) {
+        await updateDoc(doc(db, "notifications", n.id), { read: true });
+      }
+    } catch (err) {
+      console.error("Error marking all notifications as read:", err);
+    }
+  };
+
   // Fetch orders
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "orders"), (snapshot) => {
@@ -219,6 +255,10 @@ export const AdminProvider = ({ children }) => {
       products,
       orders,
       categories,
+      notifications,
+      unreadNotificationsCount: notifications.filter(n => !n.read).length,
+      markNotificationAsRead,
+      markAllNotificationsAsRead,
       user,
       loading,
       adminPin,
