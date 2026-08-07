@@ -33,6 +33,64 @@ const AdminOrders = () => {
     }
   };
 
+  const sanitizePhoneForWhatsApp = (phoneStr) => {
+    if (!phoneStr) return null;
+    let digits = String(phoneStr).replace(/\D/g, '');
+    if (!digits) return null;
+
+    if (digits.startsWith('0')) {
+      digits = digits.substring(1);
+    }
+
+    if (digits.length === 10) {
+      return `91${digits}`;
+    }
+
+    if (digits.length === 12 && digits.startsWith('91')) {
+      return digits;
+    }
+
+    if (digits.length > 10) {
+      return digits.startsWith('91') ? digits : `91${digits}`;
+    }
+
+    return null;
+  };
+
+  const getFormattedProductsList = (items) => {
+    if (!Array.isArray(items) || items.length === 0) return 'Product Item';
+    return items
+      .map(item => {
+        const title = (item.title || item.name || 'Product').trim();
+        const qty = item.quantity || 1;
+        return `${title} (x${qty})`;
+      })
+      .join(', ');
+  };
+
+  const handleDeliveredWithWhatsApp = async (order) => {
+    await handleStatusChange(order.id, 'Delivered');
+
+    const waNumber = sanitizePhoneForWhatsApp(order.customer?.phone);
+    if (!waNumber) {
+      alert("Order marked as Delivered. Customer WhatsApp number is missing or invalid.");
+      return;
+    }
+
+    const customerName = (order.customer?.name && order.customer.name !== 'N/A' ? order.customer.name : 'Valued Customer').trim();
+    const orderId = order.id || 'N/A';
+    const productsText = getFormattedProductsList(order.items);
+    const amountVal = order.totalPrice !== undefined && order.totalPrice !== null ? order.totalPrice : 0;
+
+    const message = `🎉 Order Delivered Successfully!\n\nHello ${customerName},\n\nYour order has been delivered successfully.\n\n📦 Order ID: ${orderId}\n🛍️ Product: ${productsText}\n💰 Amount: ₹${amountVal}\n\nThank you for shopping with NOORKARTS ❤️`;
+
+    const encodedText = encodeURIComponent(message);
+    const waUrl = `https://wa.me/${waNumber}?text=${encodedText}`;
+
+    window.open(waUrl, '_blank');
+    alert("Order marked as Delivered. WhatsApp message is ready to send.");
+  };
+
   const wipeAllOrders = async () => {
     const confirmWipe = window.confirm("WARNING: Are you sure you want to delete ALL orders from the database? This cannot be undone.");
     if (!confirmWipe) return;
@@ -257,7 +315,7 @@ const AdminOrders = () => {
                     <button className="btn-secondary" style={{ padding: '0.5rem', fontSize: '0.875rem' }} onClick={() => handleStatusChange(order.id, 'Shipped')}>
                       <Truck size={16} /> Shipped
                     </button>
-                    <button className="btn-secondary" style={{ padding: '0.5rem', fontSize: '0.875rem', gridColumn: '1 / -1' }} onClick={() => handleStatusChange(order.id, 'Delivered')}>
+                    <button className="btn-secondary" style={{ padding: '0.5rem', fontSize: '0.875rem', gridColumn: '1 / -1' }} onClick={() => handleDeliveredWithWhatsApp(order)}>
                       Delivered
                     </button>
                     <button className="btn-danger" style={{ padding: '0.5rem', fontSize: '0.875rem', gridColumn: '1 / -1' }} onClick={() => handleStatusChange(order.id, 'Cancelled')}>
