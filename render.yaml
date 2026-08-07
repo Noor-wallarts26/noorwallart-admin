@@ -1,0 +1,11 @@
+services:
+  # Render Static Site Configuration for Admin Panel Single Page Application (SPA)
+  - type: web
+    name: noorwallart-admin
+    env: static
+    buildCommand: npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
