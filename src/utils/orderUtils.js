@@ -240,7 +240,7 @@ export const sendWhatsAppOrderNotification = (orderData, targetPhone = '89253253
   ).join('\n');
 
   const message = 
-`🚨 *NEW ORDER ALERT - NOOR WALLARTS* 🚨
+`🚨 *NEW ORDER ALERT - NOORKARTS* 🚨
 ---------------------------------
 *Order ID:* ${sanitized.id}
 *Date:* ${sanitized.formattedDate}
@@ -265,7 +265,7 @@ ${itemLines}
 📍 *Delivery Address:*
 ${sanitized.customer.fullAddress}
 ---------------------------------
-Thank you for shopping with Noor WallArts & Gifts!`;
+Thank you for shopping with NOORKARTS!`;
 
   const encodedUrl = `https://wa.me/${phoneWithCountry}?text=${encodeURIComponent(message)}`;
   

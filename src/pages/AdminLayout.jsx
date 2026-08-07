@@ -118,7 +118,7 @@ const AdminLayout = () => {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.5rem 0 0.75rem 0' }}>
             <img
               src="/logo.jpg"
-              alt="Noor Wallarts & Gifts"
+              alt="NOORKARTS"
               style={{
                 width: '120px',
                 height: '120px',
@@ -293,7 +293,7 @@ const AdminLayout = () => {
             >
               <img
                 src="/logo.jpg"
-                alt="Noor Wallarts & Gifts"
+                alt="NOORKARTS"
                 style={{
                   width: '42px',
                   height: '42px',
@@ -318,7 +318,7 @@ const AdminLayout = () => {
             <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
               <img
                 src="/logo.jpg"
-                alt="Noor Wallarts & Gifts"
+                alt="NOORKARTS"
                 style={{
                   width: '90px',
                   height: '90px',

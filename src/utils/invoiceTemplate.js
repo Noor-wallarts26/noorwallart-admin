@@ -1,294 +1,374 @@
 import { sanitizeOrder, formatCurrency, generateBarcodeSVG, getQRCodeURL, validateValue } from './orderUtils';
 
 /**
- * Generates enterprise-grade A4 Invoice HTML (Shopify / Amazon / Flipkart style).
+ * Helper to determine badge color based on Order Status.
+ */
+const getStatusBadgeStyle = (status = '') => {
+  const s = String(status).toUpperCase();
+  if (s.includes('DELIVERED')) {
+    return { bg: '#DEF7EC', color: '#03543F', border: '#84E1BC', text: 'DELIVERED ✅' };
+  }
+  if (s.includes('CANCEL') || s.includes('RETURN')) {
+    return { bg: '#FEE2E2', color: '#991B1B', border: '#FCA5A5', text: s.includes('CANCEL') ? 'CANCELLED ❌' : 'RETURNED 🔄' };
+  }
+  if (s.includes('SHIPPED') || s.includes('OUT FOR DELIVERY')) {
+    return { bg: '#E0E7FF', color: '#3730A3', border: '#A5B4FC', text: s.includes('OUT') ? 'OUT FOR DELIVERY 🚚' : 'SHIPPED 🚚' };
+  }
+  if (s.includes('PACK') || s.includes('READY')) {
+    return { bg: '#F3E8FF', color: '#6B21A8', border: '#D8B4FE', text: 'ORDER READY 📦' };
+  }
+  if (s.includes('CONFIRM') || s.includes('ACCEPT') || s.includes('PROCESS')) {
+    return { bg: '#DBEAFE', color: '#1E40AF', border: '#93C5FD', text: 'CONFIRMED ⚙️' };
+  }
+  return { bg: '#FEF08A', color: '#713F12', border: '#FDE047', text: 'PENDING ⏳' };
+};
+
+/**
+ * Generates Premium NOORKARTS A4 Print-Ready Invoice HTML.
  */
 export const generateInvoiceHTML = (rawOrder, storeSettings = {}) => {
   const order = sanitizeOrder(rawOrder);
-  const logoUrl = storeSettings.logoUrl || '/logo.jpg';
   const supportEmail = 'noorkarts.in@gmail.com';
   const supportPhone = '+91 89253 25330';
-  const websiteUrl = 'www.noorwallarts.in';
-  const qrUrl = getQRCodeURL(`Order:${order.id} | Customer:${order.customer.name} | Phone:${order.customer.phone} | Total:${formatCurrency(order.totalPrice)} | Date:${order.formattedDate}`);
+  const statusStyle = getStatusBadgeStyle(order.status);
+  const isPaid = order.paymentStatus.toLowerCase().includes('paid');
+
+  const invoiceNumber = `INV-${order.id}`;
+  const trackingNo = order.trackingNumber && order.trackingNumber !== 'N/A' ? order.trackingNumber : `TRK-${order.id}`;
+
+  const qrDataText = `Order ID: ${order.id} | Invoice: ${invoiceNumber} | Customer: ${order.customer.name} | Phone: ${order.customer.phone} | Address: ${order.customer.fullAddress} | Status: ${order.paymentStatus} | Total: ${formatCurrency(order.totalPrice)} | Tracking: ${trackingNo}`;
+  const qrUrl = getQRCodeURL(qrDataText);
   const barcodeSVG = generateBarcodeSVG(order.id);
 
-  const itemsRowsHTML = order.items.map((item, index) => `
-    <tr style="border-bottom: 1px solid #E5E7EB;">
-      <td style="padding: 12px; text-align: center; color: #6B7280; font-size: 13px; font-weight: 500;">${index + 1}</td>
-      <td style="padding: 12px; width: 60px; text-align: center;">
-        <img src="${item.imageUrl}" alt="${item.title}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 6px; border: 1px solid #E5E7EB;" onError="this.src='/logo.jpg'" />
-      </td>
-      <td style="padding: 12px;">
-        <div style="font-weight: 600; color: #111827; font-size: 14px; margin-bottom: 4px;">${item.title}</div>
-        <div style="font-size: 12px; color: #6B7280; line-height: 1.4;">
-          ${item.variant !== 'N/A' ? `<span><strong>Variant:</strong> ${item.variant}</span> | ` : ''}
-          ${item.size !== 'N/A' ? `<span><strong>Size:</strong> ${item.size}</span> | ` : ''}
-          ${item.color !== 'N/A' ? `<span><strong>Color:</strong> ${item.color}</span> | ` : ''}
-          ${item.frameType !== 'N/A' ? `<span><strong>Frame:</strong> ${item.frameType}</span>` : ''}
-        </div>
-      </td>
-      <td style="padding: 12px; text-align: center; font-weight: 600; color: #111827; font-size: 14px;">${item.quantity}</td>
-      <td style="padding: 12px; text-align: right; font-weight: 500; color: #374151; font-size: 14px;">${formatCurrency(item.price)}</td>
-      <td style="padding: 12px; text-align: right; font-weight: 700; color: #111827; font-size: 14px;">${formatCurrency(item.totalPrice)}</td>
-    </tr>
-  `).join('');
+  // Address lines sanitation (only display non-N/A valid strings)
+  const billingEmailLine = order.customer.email && order.customer.email !== 'N/A' ? `<div><span style="color: #64748B;">Email:</span> ${order.customer.email}</div>` : '';
+  const streetLine = order.customer.street && order.customer.street !== 'N/A' ? `${order.customer.street}, ` : '';
+  const houseLine = order.customer.houseNo && order.customer.houseNo !== 'N/A' ? `#${order.customer.houseNo}, ` : '';
+  const buildingLine = order.customer.building && order.customer.building !== 'N/A' ? `${order.customer.building}, ` : '';
+  const areaLine = order.customer.area && order.customer.area !== 'N/A' ? `${order.customer.area}, ` : '';
+  const landmarkLine = order.customer.landmark && order.customer.landmark !== 'N/A' ? `(Near ${order.customer.landmark}), ` : '';
+  const cityLine = order.customer.city && order.customer.city !== 'N/A' ? `${order.customer.city}, ` : '';
+  const stateLine = order.customer.state && order.customer.state !== 'N/A' ? `${order.customer.state}` : '';
+  const pincodeLine = order.customer.pincode && order.customer.pincode !== 'N/A' ? ` - ${order.customer.pincode}` : '';
+  const countryLine = order.customer.country && order.customer.country !== 'N/A' ? `, ${order.customer.country}` : '';
+
+  const cleanFormattedAddress = `${houseLine}${buildingLine}${streetLine}${areaLine}${landmarkLine}${cityLine}${stateLine}${pincodeLine}${countryLine}`.replace(/,\s*,/g, ',').trim() || order.customer.fullAddress;
+
+  // Financial calculations
+  const subtotalVal = Math.max(0, order.subtotal || 0);
+  const shippingVal = Math.max(0, order.deliveryFee || 0);
+  const couponDiscountVal = Math.max(0, order.discount || 0);
+  const gstVal = Math.max(0, order.gst || 0);
+  const grandTotalVal = Math.max(0, order.totalPrice || (subtotalVal + shippingVal + gstVal - couponDiscountVal));
+  const paidAmountVal = isPaid ? grandTotalVal : 0;
+  const balanceAmountVal = Math.max(0, grandTotalVal - paidAmountVal);
+
+  const itemsRowsHTML = order.items.map((item, index) => {
+    const unitPrice = item.price || 0;
+    const qty = item.quantity || 1;
+    const lineTotal = item.totalPrice || (unitPrice * qty);
+
+    const variantStr = [
+      item.variant !== 'N/A' ? `Variant: ${item.variant}` : '',
+      item.size !== 'N/A' ? `Size: ${item.size}` : '',
+      item.color !== 'N/A' ? `Color: ${item.color}` : '',
+      item.frameType !== 'N/A' ? `Frame: ${item.frameType}` : ''
+    ].filter(Boolean).join(' | ');
+
+    return `
+      <tr style="border-bottom: 1px solid #E2E8F0;">
+        <td style="padding: 10px 8px; text-align: center; color: #64748B; font-size: 12px; font-weight: 600;">${index + 1}</td>
+        <td style="padding: 10px 8px; width: 50px; text-align: center;">
+          <img src="${item.imageUrl}" alt="${item.title}" style="width: 44px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid #E2E8F0;" onError="this.src='/logo.jpg'" />
+        </td>
+        <td style="padding: 10px 10px;">
+          <div style="font-weight: 700; color: #0F172A; font-size: 13.5px; margin-bottom: 2px;">${item.title}</div>
+          ${variantStr ? `<div style="font-size: 11px; color: #64748B; font-weight: 500;">${variantStr}</div>` : ''}
+        </td>
+        <td style="padding: 10px 8px; text-align: center; font-weight: 700; color: #0F172A; font-size: 13px;">${qty}</td>
+        <td style="padding: 10px 8px; text-align: right; font-weight: 600; color: #334155; font-size: 13px;">${formatCurrency(unitPrice)}</td>
+        <td style="padding: 10px 8px; text-align: right; font-weight: 500; color: #64748B; font-size: 13px;">₹0.00</td>
+        <td style="padding: 10px 8px; text-align: right; font-weight: 500; color: #16A34A; font-size: 13px;">${couponDiscountVal > 0 && index === 0 ? `-${formatCurrency(couponDiscountVal)}` : '₹0.00'}</td>
+        <td style="padding: 10px 8px; text-align: right; font-weight: 700; color: #0F172A; font-size: 13px;">${formatCurrency(unitPrice)}</td>
+        <td style="padding: 10px 8px; text-align: right; font-weight: 800; color: #0F172A; font-size: 13.5px;">${formatCurrency(lineTotal)}</td>
+      </tr>
+    `;
+  }).join('');
 
   return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Invoice - ${order.id}</title>
+  <title>NOORKARTS Tax Invoice - ${order.id}</title>
   <style>
     @media print {
-      @page { size: A4; margin: 10mm; }
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      @page { size: A4 portrait; margin: 8mm; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 0; background: #FFFFFF; }
       .no-print { display: none !important; }
+      .invoice-card { box-shadow: none !important; border: 1px solid #000000 !important; }
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
-      background-color: #F9FAFB;
-      color: #111827;
-      padding: 30px;
-      line-height: 1.5;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      background-color: #F8FAFC;
+      color: #0F172A;
+      padding: 20px;
+      line-height: 1.4;
     }
-    .invoice-container {
-      max-width: 820px;
+    .invoice-card {
+      max-width: 840px;
       margin: 0 auto;
       background: #FFFFFF;
-      padding: 40px;
-      border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-      border: 1px solid #E5E7EB;
+      padding: 32px;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.06);
+      border: 1px solid #E2E8F0;
     }
-    .header-centered {
+    .brand-header {
       text-align: center;
-      padding-bottom: 24px;
-      border-bottom: 2px solid #111827;
-      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid #0F172A;
+      margin-bottom: 20px;
     }
-    .store-logo {
-      width: 80px;
-      height: 80px;
-      object-fit: cover;
-      border-radius: 50%;
-      margin: 0 auto 12px auto;
-      border: 2px solid #D4AF37;
-      display: block;
-    }
-    .store-title {
-      font-size: 26px;
-      font-weight: 800;
-      letter-spacing: 1px;
-      color: #111827;
+    .brand-title {
+      font-size: 34px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: #0F172A;
       text-transform: uppercase;
-      margin-bottom: 6px;
+      margin: 0 0 4px 0;
+      font-family: Arial, sans-serif;
     }
-    .store-contact {
+    .brand-contact {
       font-size: 13px;
-      color: #4B5563;
-      font-weight: 500;
+      color: #475569;
+      font-weight: 600;
     }
-    .invoice-meta-bar {
+    
+    .meta-row {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      background: #F3F4F6;
-      padding: 16px 20px;
-      border-radius: 8px;
-      margin-bottom: 24px;
-      border: 1px solid #E5E7EB;
+      align-items: stretch;
+      gap: 16px;
+      margin-bottom: 20px;
     }
-    .meta-item { display: flex; flex-direction: column; }
-    .meta-label { font-size: 11px; text-transform: uppercase; color: #6B7280; font-weight: 700; letter-spacing: 0.5px; }
-    .meta-value { font-size: 15px; font-weight: 700; color: #111827; margin-top: 2px; }
-    .badge {
+    .meta-card {
+      flex: 1;
+      background: #F8FAFC;
+      border-radius: 10px;
+      padding: 14px 16px;
+      border: 1px solid #E2E8F0;
+    }
+    .meta-label { font-size: 10px; font-weight: 800; text-transform: uppercase; color: #64748B; letter-spacing: 0.5px; margin-bottom: 2px; }
+    .meta-val { font-size: 14px; font-weight: 700; color: #0F172A; }
+
+    .status-badge {
       display: inline-block;
       padding: 4px 12px;
       border-radius: 20px;
-      font-size: 12px;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
-    .badge-paid { background: #DEF7EC; color: #03543F; border: 1px solid #84E1BC; }
-    .badge-pending { background: #FEF08A; color: #713F12; border: 1px solid #FDE047; }
-    
-    .billing-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 24px;
-      margin-bottom: 28px;
-    }
-    .address-card {
-      background: #FAFAFA;
-      padding: 18px;
-      border-radius: 8px;
-      border: 1px solid #E5E7EB;
-    }
-    .address-title {
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 800;
       text-transform: uppercase;
-      color: #374151;
-      margin-bottom: 10px;
       letter-spacing: 0.5px;
-    }
-    .address-text { font-size: 13.5px; color: #1F2937; line-height: 1.6; }
-    
-    .items-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 28px;
-    }
-    .items-table th {
-      background: #111827;
-      color: #FFFFFF;
-      padding: 12px;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    
-    .summary-section {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-top: 20px;
-    }
-    .codes-box {
-      display: flex;
-      gap: 20px;
-      align-items: center;
-      background: #FFFFFF;
-      padding: 12px;
-      border-radius: 8px;
-      border: 1px solid #E5E7EB;
-    }
-    .totals-box {
-      width: 320px;
-      background: #FAFAFA;
-      padding: 18px;
-      border-radius: 8px;
-      border: 1px solid #E5E7EB;
-    }
-    .totals-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 6px 0;
-      font-size: 14px;
-      color: #4B5563;
-    }
-    .totals-grand {
-      display: flex;
-      justify-content: space-between;
-      padding-top: 12px;
-      margin-top: 8px;
-      border-top: 2px solid #111827;
-      font-size: 18px;
-      font-weight: 800;
-      color: #111827;
     }
 
-    .footer-centered {
-      margin-top: 40px;
-      padding-top: 20px;
-      border-top: 1px solid #E5E7EB;
-      text-align: center;
-      color: #6B7280;
-      font-size: 13px;
+    .address-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
     }
+    .address-box {
+      background: #FFFFFF;
+      border: 1px solid #CBD5E1;
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .box-title { font-size: 11px; font-weight: 900; text-transform: uppercase; color: #334155; letter-spacing: 0.5px; margin-bottom: 8px; border-bottom: 1px solid #E2E8F0; padding-bottom: 4px; }
+    .box-content { font-size: 12.5px; color: #1E293B; line-height: 1.5; }
+
+    .product-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+    .product-table th {
+      background: #0F172A;
+      color: #FFFFFF;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      padding: 10px 8px;
+      letter-spacing: 0.5px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 20px;
+      align-items: start;
+      margin-bottom: 24px;
+    }
+    .codes-card {
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      gap: 14px;
+      align-items: center;
+    }
+    .totals-card {
+      background: #FFFFFF;
+      border: 1.5px solid #0F172A;
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .t-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: 13px;
+      color: #475569;
+      font-weight: 500;
+    }
+    .t-grand {
+      display: flex;
+      justify-content: space-between;
+      padding-top: 8px;
+      margin-top: 6px;
+      border-top: 2px solid #0F172A;
+      font-size: 16px;
+      font-weight: 900;
+      color: #0F172A;
+    }
+
     .print-actions {
       display: flex;
       justify-content: center;
-      gap: 16px;
-      margin-bottom: 24px;
+      gap: 12px;
+      margin-bottom: 20px;
     }
-    .btn-action {
-      background: #111827;
+    .btn-print {
+      background: #0F172A;
       color: #FFFFFF;
       border: none;
-      padding: 10px 24px;
-      border-radius: 6px;
-      font-weight: 600;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 13.5px;
       cursor: pointer;
-      font-size: 14px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
-    .btn-action:hover { background: #374151; }
+    .btn-print:hover { background: #334155; }
+    .btn-green { background: #16A34A; }
+    .btn-green:hover { background: #15803D; }
+
+    .footer-note {
+      text-align: center;
+      border-top: 1px solid #E2E8F0;
+      padding-top: 14px;
+      font-size: 12px;
+      color: #64748B;
+    }
   </style>
 </head>
 <body>
 
+  <!-- PRINT ACTIONS -->
   <div class="print-actions no-print">
-    <button class="btn-action" onclick="window.print()">🖨️ Print Invoice</button>
-    <button class="btn-action" style="background: #059669;" onclick="window.print()">📄 Save as PDF</button>
+    <button class="btn-print" onclick="window.print()">🖨️ Print Full Invoice (A4)</button>
+    <button class="btn-print btn-green" onclick="window.print()">📄 Save as PDF</button>
   </div>
 
-  <div class="invoice-container">
+  <div class="invoice-card">
     
-    <!-- CENTERED HEADER -->
-    <div class="header-centered">
-      <img src="${logoUrl}" alt="Noor WallArts Logo" class="store-logo" onError="this.src='/logo.jpg'" />
-      <div class="store-title">NOOR WALLARTS & GIFTS</div>
-      <div class="store-contact">
-        📧 ${supportEmail} &nbsp;|&nbsp; 📞 ${supportPhone} &nbsp;|&nbsp; 🌐 ${websiteUrl}
+    <!-- TOP CENTER BRAND HEADER -->
+    <div class="brand-header">
+      <div class="brand-title">NOORKARTS</div>
+      <div class="brand-contact">
+        Email: <strong>${supportEmail}</strong> &nbsp;|&nbsp; Phone: <strong>${supportPhone}</strong>
       </div>
     </div>
 
-    <!-- META BAR -->
-    <div class="invoice-meta-bar">
-      <div class="meta-item">
-        <span class="meta-label">Invoice Number</span>
-        <span class="meta-value">${order.id}</span>
+    <!-- META BAR & STATUS -->
+    <div class="meta-row">
+      <div class="meta-card">
+        <div class="meta-label">Invoice Number</div>
+        <div class="meta-val">${invoiceNumber}</div>
       </div>
-      <div class="meta-item">
-        <span class="meta-label">Date & Time</span>
-        <span class="meta-value">${order.formattedDate}</span>
+      <div class="meta-card">
+        <div class="meta-label">Order ID</div>
+        <div class="meta-val">#${order.id}</div>
       </div>
-      <div class="meta-item">
-        <span class="meta-label">Payment Method</span>
-        <span class="meta-value">${order.paymentMethod}</span>
+      <div class="meta-card">
+        <div class="meta-label">Date & Time</div>
+        <div class="meta-val">${order.formattedDate}</div>
       </div>
-      <div class="meta-item">
-        <span class="meta-label">Payment Status</span>
-        <span class="badge ${order.paymentStatus.toLowerCase().includes('paid') ? 'badge-paid' : 'badge-pending'}">${order.paymentStatus}</span>
+      <div class="meta-card">
+        <div class="meta-label">Payment Method</div>
+        <div class="meta-val">${order.paymentMethod}</div>
       </div>
-    </div>
-
-    <!-- BILLING ADDRESS -->
-    <div class="billing-grid">
-      <div class="address-card">
-        <div class="address-title">Billed & Shipped To</div>
-        <div class="address-text">
-          <strong style="font-size: 15px; color: #111827;">${order.customer.name}</strong><br />
-          📞 ${order.customer.phone}<br />
-          ✉️ ${order.customer.email}<br />
-          🏠 ${order.customer.fullAddress}
+      <div class="meta-card">
+        <div class="meta-label">Payment Status</div>
+        <div style="margin-top: 3px;">
+          <span class="status-badge" style="background: ${isPaid ? '#DEF7EC' : '#FEF08A'}; color: ${isPaid ? '#03543F' : '#713F12'}; border: 1px solid ${isPaid ? '#84E1BC' : '#FDE047'};">
+            ${isPaid ? 'PAID ✅' : 'PENDING'}
+          </span>
         </div>
       </div>
-      
-      <div class="address-card">
-        <div class="address-title">Order Information</div>
-        <div class="address-text">
-          <strong>Order ID:</strong> ${order.id}<br />
-          <strong>Transaction ID:</strong> ${order.transactionId}<br />
-          <strong>Order Status:</strong> ${order.status}<br />
-          <strong>Tracking Number:</strong> ${order.trackingNumber}
+      <div class="meta-card">
+        <div class="meta-label">Order Status</div>
+        <div style="margin-top: 3px;">
+          <span class="status-badge" style="background: ${statusStyle.bg}; color: ${statusStyle.color}; border: 1px solid ${statusStyle.border};">
+            ${statusStyle.text}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- BILLING & SHIPPING DETAILS -->
+    <div class="address-grid">
+      <!-- BILLING DETAILS -->
+      <div class="address-box">
+        <div class="box-title">📋 Billing Details</div>
+        <div class="box-content">
+          <strong style="font-size: 14px; color: #0F172A;">${order.customer.name}</strong>
+          <div><span style="color: #64748B;">Mobile:</span> <strong>${order.customer.phone}</strong></div>
+          ${billingEmailLine}
+          <div style="margin-top: 6px; font-size: 11.5px; color: #64748B;">
+            TXN ID: <strong style="color: #0F172A;">${order.transactionId}</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- SHIPPING ADDRESS -->
+      <div class="address-box">
+        <div class="box-title">🚚 Shipping Address</div>
+        <div class="box-content">
+          <strong style="font-size: 14px; color: #0F172A;">${order.customer.name}</strong>
+          <div><span style="color: #64748B;">Mobile:</span> <strong>${order.customer.phone}</strong></div>
+          <div style="margin-top: 4px;">${cleanFormattedAddress}</div>
         </div>
       </div>
     </div>
 
     <!-- PRODUCT TABLE -->
-    <table class="items-table">
+    <table class="product-table">
       <thead>
         <tr>
-          <th style="width: 40px; text-align: center;">#</th>
-          <th style="width: 70px; text-align: center;">Item</th>
-          <th style="text-align: left;">Product Description</th>
-          <th style="width: 60px; text-align: center;">Qty</th>
-          <th style="width: 100px; text-align: right;">Unit Price</th>
-          <th style="width: 110px; text-align: right;">Line Total</th>
+          <th style="width: 32px; text-align: center;">#</th>
+          <th style="width: 54px; text-align: center;">Item</th>
+          <th style="text-align: left;">Product Details</th>
+          <th style="width: 44px; text-align: center;">Qty</th>
+          <th style="width: 90px; text-align: right;">Unit Price</th>
+          <th style="width: 80px; text-align: right;">Offer Disc</th>
+          <th style="width: 85px; text-align: right;">Coupon Disc</th>
+          <th style="width: 90px; text-align: right;">Final Price</th>
+          <th style="width: 100px; text-align: right;">Total Price</th>
         </tr>
       </thead>
       <tbody>
@@ -296,49 +376,60 @@ export const generateInvoiceHTML = (rawOrder, storeSettings = {}) => {
       </tbody>
     </table>
 
-    <!-- CODES & SUMMARY -->
-    <div class="summary-section">
-      <div class="codes-box">
-        <img src="${qrUrl}" alt="QR Code" width="90" height="90" style="border-radius: 4px;" />
-        <div style="text-align: center;">
-          <div style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #6B7280; margin-bottom: 4px;">Barcode Verification</div>
+    <!-- CODES & FINANCIAL SUMMARY -->
+    <div class="summary-grid">
+      <!-- AUTOMATIC CODES -->
+      <div class="codes-card">
+        <img src="${qrUrl}" alt="QR Code" width="95" height="95" style="border-radius: 6px; border: 1px solid #CBD5E1; flex-shrink: 0;" />
+        <div style="flex: 1; text-align: center;">
+          <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #64748B; margin-bottom: 2px;">Print-Ready Code 39 Barcode</div>
           ${barcodeSVG}
+          <div style="font-size: 10px; color: #94A3B8; margin-top: 2px;">Order Verification Scanner</div>
         </div>
       </div>
 
-      <div class="totals-box">
-        <div class="totals-row">
+      <!-- ORDER SUMMARY TOTALS -->
+      <div class="totals-card">
+        <div class="t-row">
           <span>Subtotal</span>
-          <span>${formatCurrency(order.subtotal)}</span>
+          <span>${formatCurrency(subtotalVal)}</span>
         </div>
-        <div class="totals-row">
-          <span>Shipping & Delivery</span>
-          <span>${order.deliveryFee === 0 ? 'FREE' : formatCurrency(order.deliveryFee)}</span>
-        </div>
-        ${order.discount > 0 ? `
-          <div class="totals-row" style="color: #059669;">
+        ${couponDiscountVal > 0 ? `
+          <div class="t-row" style="color: #16A34A;">
             <span>Coupon Discount</span>
-            <span>-${formatCurrency(order.discount)}</span>
+            <span>-${formatCurrency(couponDiscountVal)}</span>
           </div>
         ` : ''}
-        ${order.gst > 0 ? `
-          <div class="totals-row">
+        <div class="t-row">
+          <span>Shipping Charge</span>
+          <span>${shippingVal === 0 ? 'FREE' : formatCurrency(shippingVal)}</span>
+        </div>
+        ${gstVal > 0 ? `
+          <div class="t-row">
             <span>GST / Tax</span>
-            <span>${formatCurrency(order.gst)}</span>
+            <span>${formatCurrency(gstVal)}</span>
           </div>
         ` : ''}
-        <div class="totals-grand">
+        <div class="t-grand">
           <span>Grand Total</span>
-          <span>${formatCurrency(order.totalPrice)}</span>
+          <span>${formatCurrency(grandTotalVal)}</span>
+        </div>
+        <div class="t-row" style="margin-top: 6px; font-weight: 700; color: #16A34A;">
+          <span>Paid Amount</span>
+          <span>${formatCurrency(paidAmountVal)}</span>
+        </div>
+        <div class="t-row" style="font-weight: 700; color: ${balanceAmountVal > 0 ? '#DC2626' : '#64748B'};">
+          <span>Balance Amount</span>
+          <span>${formatCurrency(balanceAmountVal)}</span>
         </div>
       </div>
     </div>
 
-    <!-- CENTERED FOOTER -->
-    <div class="footer-centered">
-      <p style="font-weight: 700; color: #111827; font-size: 14px; margin-bottom: 4px;">Thank you for shopping with Noor WallArts & Gifts!</p>
-      <p>Need Help? Email: <strong>${supportEmail}</strong> | Phone: <strong>${supportPhone}</strong> | Website: <strong>${websiteUrl}</strong></p>
-      <p style="font-size: 11px; color: #9CA3AF; margin-top: 10px;">This is a computer-generated tax invoice and requires no physical signature.</p>
+    <!-- FOOTER -->
+    <div class="footer-note">
+      <p style="font-weight: 800; color: #0F172A; font-size: 13px; margin-bottom: 2px;">Thank you for shopping with NOORKARTS!</p>
+      <p>Customer Support: <strong>${supportEmail}</strong> | Mobile: <strong>${supportPhone}</strong></p>
+      <p style="font-size: 10.5px; color: #94A3B8; margin-top: 6px;">This is an automated computer-generated tax invoice and requires no physical signature.</p>
     </div>
 
   </div>
@@ -349,100 +440,135 @@ export const generateInvoiceHTML = (rawOrder, storeSettings = {}) => {
 };
 
 /**
- * Generates A6 Thermal Print-Ready Shipping Label HTML.
+ * Generates Premium NOORKARTS A6 Print-Ready Shipping Label HTML.
  */
 export const generateShippingLabelHTML = (rawOrder, storeSettings = {}) => {
   const order = sanitizeOrder(rawOrder);
-  const logoUrl = storeSettings.logoUrl || '/logo.jpg';
-  const websiteUrl = 'www.noorwallarts.in';
+  const supportEmail = 'noorkarts.in@gmail.com';
+  const supportPhone = '+91 89253 25330';
   const isCOD = order.paymentMethod.toUpperCase().includes('COD');
-  const qrUrl = getQRCodeURL(`ShipTo:${order.customer.name}|Phone:${order.customer.phone}|OrderID:${order.id}|Address:${order.customer.fullAddress}`);
+  const trackingNo = order.trackingNumber && order.trackingNumber !== 'N/A' ? order.trackingNumber : `TRK-${order.id}`;
+
+  const qrDataText = `ShipTo:${order.customer.name}|Phone:${order.customer.phone}|OrderID:${order.id}|Address:${order.customer.fullAddress}|Tracking:${trackingNo}`;
+  const qrUrl = getQRCodeURL(qrDataText);
   const barcodeSVG = generateBarcodeSVG(order.id);
+
+  // Address lines sanitation
+  const houseLine = order.customer.houseNo && order.customer.houseNo !== 'N/A' ? `#${order.customer.houseNo}, ` : '';
+  const buildingLine = order.customer.building && order.customer.building !== 'N/A' ? `${order.customer.building}, ` : '';
+  const streetLine = order.customer.street && order.customer.street !== 'N/A' ? `${order.customer.street}, ` : '';
+  const areaLine = order.customer.area && order.customer.area !== 'N/A' ? `${order.customer.area}, ` : '';
+  const landmarkLine = order.customer.landmark && order.customer.landmark !== 'N/A' ? `(Near ${order.customer.landmark}), ` : '';
+  const cityLine = order.customer.city && order.customer.city !== 'N/A' ? `${order.customer.city}, ` : '';
+  const stateLine = order.customer.state && order.customer.state !== 'N/A' ? `${order.customer.state}` : '';
+  const pincodeLine = order.customer.pincode && order.customer.pincode !== 'N/A' ? ` - ${order.customer.pincode}` : '';
+
+  const cleanAddress = `${houseLine}${buildingLine}${streetLine}${areaLine}${landmarkLine}${cityLine}${stateLine}${pincodeLine}`.replace(/,\s*,/g, ',').trim() || order.customer.fullAddress;
+
+  const contentsLines = order.items.map(i => `• ${i.title} (x${i.quantity})`).join('<br />');
 
   return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Shipping Label - ${order.id}</title>
+  <title>NOORKARTS Shipping Label - ${order.id}</title>
   <style>
     @media print {
-      @page { size: A6 portrait; margin: 4mm; }
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 0; background: #FFF; }
+      @page { size: A6 portrait; margin: 3mm; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 0; background: #FFFFFF; }
       .no-print { display: none !important; }
+      .label-card { border: 2.5px solid #000000 !important; box-shadow: none !important; }
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif;
-      background: #F3F4F6;
-      padding: 20px;
+      background: #F1F5F9;
+      padding: 16px;
       color: #000000;
     }
-    .label-container {
+    .label-card {
       width: 100%;
-      max-width: 400px;
+      max-width: 390px;
       margin: 0 auto;
       background: #FFFFFF;
       border: 3px solid #000000;
       padding: 12px;
-      border-radius: 6px;
+      border-radius: 8px;
     }
-    .label-header {
+    .brand-top {
       text-align: center;
-      border-bottom: 2px solid #000000;
-      padding-bottom: 8px;
-      margin-bottom: 10px;
+      border-bottom: 2.5px solid #000000;
+      padding-bottom: 6px;
+      margin-bottom: 8px;
     }
-    .label-logo { width: 50px; height: 50px; border-radius: 50%; margin: 0 auto 4px auto; display: block; border: 1px solid #000; }
-    .label-store-name { font-size: 16px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; }
-    .label-website { font-size: 11px; font-weight: 600; color: #333; }
+    .brand-name {
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-family: Arial, sans-serif;
+    }
+    .brand-sub { font-size: 10.5px; font-weight: 700; color: #333333; }
 
-    .badge-bar {
+    .badge-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
       border-bottom: 2px solid #000000;
-      padding-bottom: 8px;
-      margin-bottom: 10px;
+      padding-bottom: 6px;
+      margin-bottom: 8px;
     }
-    .cod-badge {
+    .payment-badge-paid {
       background: #000000;
       color: #FFFFFF;
-      font-size: 16px;
+      font-size: 14px;
       font-weight: 900;
-      padding: 6px 14px;
+      padding: 4px 10px;
       border-radius: 4px;
       text-transform: uppercase;
     }
-    .prepaid-badge {
-      background: #15803D;
+    .payment-badge-cod {
+      background: #DC2626;
       color: #FFFFFF;
-      font-size: 16px;
+      font-size: 14px;
       font-weight: 900;
-      padding: 6px 14px;
+      padding: 4px 10px;
       border-radius: 4px;
       text-transform: uppercase;
     }
 
-    .ship-to-box {
+    .ship-box {
       border: 2px solid #000000;
       padding: 10px;
-      border-radius: 4px;
-      margin-bottom: 10px;
-      background: #FAFAFA;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      background: #FAF9F6;
     }
-    .ship-to-title { font-size: 11px; font-weight: 900; text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 3px; margin-bottom: 6px; }
-    .customer-name { font-size: 18px; font-weight: 900; text-transform: uppercase; line-height: 1.2; margin-bottom: 4px; }
-    .customer-phone { font-size: 16px; font-weight: 900; margin-bottom: 6px; }
-    .customer-address { font-size: 13px; font-weight: 700; line-height: 1.4; color: #111; }
-    .customer-pincode { font-size: 20px; font-weight: 900; margin-top: 6px; background: #000; color: #FFF; display: inline-block; padding: 2px 8px; border-radius: 4px; }
+    .ship-title { font-size: 10px; font-weight: 900; text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 2px; margin-bottom: 4px; }
+    .recip-name { font-size: 17px; font-weight: 900; text-transform: uppercase; line-height: 1.2; margin-bottom: 2px; }
+    .recip-phone { font-size: 15px; font-weight: 900; margin-bottom: 4px; }
+    .recip-addr { font-size: 12.5px; font-weight: 700; line-height: 1.35; color: #000; }
+    .pin-badge { font-size: 18px; font-weight: 900; background: #000; color: #FFF; display: inline-block; padding: 2px 8px; border-radius: 4px; margin-top: 4px; }
 
-    .items-summary-box {
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      font-size: 10.5px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      border: 1px solid #000;
+      padding: 6px;
+      border-radius: 4px;
+    }
+
+    .contents-box {
       border: 1px solid #000000;
-      padding: 8px;
-      font-size: 11px;
+      padding: 6px 8px;
+      font-size: 10.5px;
       font-weight: 700;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       border-radius: 4px;
     }
 
@@ -451,21 +577,23 @@ export const generateShippingLabelHTML = (rawOrder, storeSettings = {}) => {
       justify-content: space-between;
       align-items: center;
       border-top: 2px solid #000000;
-      padding-top: 8px;
+      padding-top: 6px;
     }
 
-    .warning-box {
-      margin-top: 10px;
-      border: 2px dashed #000;
-      text-align: center;
-      padding: 6px;
-      font-size: 11px;
+    .badges-footer {
+      display: flex;
+      justify-content: space-around;
+      margin-top: 6px;
+      border: 1.5px dashed #000;
+      padding: 4px;
+      font-size: 10.5px;
       font-weight: 900;
       text-transform: uppercase;
       background: #FFFBEB;
     }
-    .print-actions { text-align: center; margin-bottom: 16px; }
-    .btn-action { background: #000; color: #FFF; border: none; padding: 8px 20px; font-weight: bold; border-radius: 4px; cursor: pointer; }
+
+    .print-actions { text-align: center; margin-bottom: 12px; }
+    .btn-action { background: #000; color: #FFF; border: none; padding: 8px 18px; font-weight: bold; border-radius: 4px; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -474,39 +602,44 @@ export const generateShippingLabelHTML = (rawOrder, storeSettings = {}) => {
     <button class="btn-action" onclick="window.print()">🖨️ Print A6 Shipping Label</button>
   </div>
 
-  <div class="label-container">
+  <div class="label-card">
     
-    <!-- HEADER -->
-    <div class="label-header">
-      <img src="${logoUrl}" alt="Logo" class="label-logo" onError="this.src='/logo.jpg'" />
-      <div class="label-store-name">NOOR WALLARTS & GIFTS</div>
-      <div class="label-website">${websiteUrl}</div>
+    <!-- BRAND TOP -->
+    <div class="brand-top">
+      <div class="brand-name">NOORKARTS</div>
+      <div class="brand-sub">Email: ${supportEmail} | Phone: ${supportPhone}</div>
     </div>
 
-    <!-- BADGE BAR -->
-    <div class="badge-bar">
+    <!-- BADGE ROW -->
+    <div class="badge-row">
       <div>
-        <div style="font-size: 10px; font-weight: 900; text-transform: uppercase;">Order ID</div>
-        <div style="font-size: 16px; font-weight: 900;">${order.id}</div>
+        <div style="font-size: 9px; font-weight: 900; text-transform: uppercase;">Order ID</div>
+        <div style="font-size: 15px; font-weight: 900;">#${order.id}</div>
       </div>
-      <div class="${isCOD ? 'cod-badge' : 'prepaid-badge'}">
-        ${isCOD ? `COD: ${formatCurrency(order.totalPrice)}` : 'PREPAID - PAID'}
+      <div class="${isCOD ? 'payment-badge-cod' : 'payment-badge-paid'}">
+        ${isCOD ? `COD: ${formatCurrency(order.totalPrice)}` : 'PREPAID - PAID ✅'}
       </div>
     </div>
 
-    <!-- SHIP TO BOX -->
-    <div class="ship-to-box">
-      <div class="ship-to-title">DELIVER TO (RECIPIENT):</div>
-      <div class="customer-name">${order.customer.name}</div>
-      <div class="customer-phone">📞 TEL: ${order.customer.phone}</div>
-      <div class="customer-address">${order.customer.fullAddress}</div>
-      <div><span class="customer-pincode">PIN: ${order.customer.pincode}</span></div>
+    <!-- RECIPIENT / SHIP TO -->
+    <div class="ship-box">
+      <div class="ship-title">DELIVER TO (RECIPIENT):</div>
+      <div class="recip-name">${order.customer.name}</div>
+      <div class="recip-phone">📞 TEL: ${order.customer.phone}</div>
+      <div class="recip-addr">${cleanAddress}</div>
+      <div><span class="pin-badge">PIN: ${order.customer.pincode}</span></div>
     </div>
 
-    <!-- ITEM SUMMARY -->
-    <div class="items-summary-box">
-      <strong>CONTENTS (${order.items.length} items):</strong><br />
-      ${order.items.map(i => `• ${i.title} x${i.quantity}`).join('<br />')}
+    <!-- SHIPPING INFO -->
+    <div class="info-grid">
+      <div>COURIER: <strong>Express Logistics / India Post</strong></div>
+      <div>TRACKING #: <strong>${trackingNo}</strong></div>
+    </div>
+
+    <!-- CONTENTS -->
+    <div class="contents-box">
+      <strong style="text-transform: uppercase;">Ordered Items (${order.items.length}):</strong><br />
+      ${contentsLines}
     </div>
 
     <!-- BARCODE & QR -->
@@ -514,12 +647,13 @@ export const generateShippingLabelHTML = (rawOrder, storeSettings = {}) => {
       <div style="width: 65%;">
         ${barcodeSVG}
       </div>
-      <img src="${qrUrl}" alt="QR Code" width="75" height="75" style="border: 1px solid #000; border-radius: 4px;" />
+      <img src="${qrUrl}" alt="QR Code" width="70" height="70" style="border: 1px solid #000; border-radius: 4px;" />
     </div>
 
-    <!-- WARNING BADGE -->
-    <div class="warning-box">
-      ⚠️ FRAGILE - HANDLE WITH CARE - ISLAMIC WALL ART & GLASS
+    <!-- HANDLING BADGES -->
+    <div class="badges-footer">
+      <span>⚠️ FRAGILE</span>
+      <span>📦 HANDLE WITH CARE</span>
     </div>
 
   </div>
@@ -534,9 +668,11 @@ export const generateShippingLabelHTML = (rawOrder, storeSettings = {}) => {
  */
 export const printInvoice = (order, storeSettings = {}) => {
   const html = generateInvoiceHTML(order, storeSettings);
-  const win = window.open('', '_blank', 'width=900,height=1000');
-  win.document.write(html);
-  win.document.close();
+  const win = window.open('', '_blank', 'width=920,height=1000');
+  if (win) {
+    win.document.write(html);
+    win.document.close();
+  }
 };
 
 /**
@@ -544,7 +680,9 @@ export const printInvoice = (order, storeSettings = {}) => {
  */
 export const printShippingLabel = (order, storeSettings = {}) => {
   const html = generateShippingLabelHTML(order, storeSettings);
-  const win = window.open('', '_blank', 'width=600,height=800');
-  win.document.write(html);
-  win.document.close();
+  const win = window.open('', '_blank', 'width=620,height=850');
+  if (win) {
+    win.document.write(html);
+    win.document.close();
+  }
 };
