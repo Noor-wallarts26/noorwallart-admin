@@ -1,7 +1,7 @@
 import React, { useContext, useState } from 'react';
 import { ShopContext } from '../context/ShopContext';
 import { Search, Filter, Download, Check, X, Truck, Package, Printer, FileText, Trash2, ExternalLink } from 'lucide-react';
-import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { printInvoice, printShippingLabel } from '../utils/invoiceTemplate';
 import { sanitizeOrder, formatCurrency, formatDate } from '../utils/orderUtils';
@@ -190,6 +190,54 @@ const AdminOrders = () => {
                       <span>Grand Total</span>
                       <span>{formatCurrency(order.totalPrice)}</span>
                     </div>
+                  </div>
+                </div>
+
+                {/* Courier Selection & Shipping Partner */}
+                <div>
+                  <h4 className="font-semibold mb-4 text-muted" style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Courier Service</h4>
+                  <div style={{ backgroundColor: 'var(--bg-color)', padding: '1rem', borderRadius: 'var(--radius-md)', fontSize: '0.875rem' }}>
+                    <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.4rem', fontSize: '0.8rem', color: '#475569' }}>Select Courier Partner</label>
+                    <select
+                      value={order.courier || ''}
+                      onChange={async (e) => {
+                        const newCourier = e.target.value;
+                        try {
+                          await updateDoc(doc(db, 'orders', order.id), { courier: newCourier });
+                        } catch (err) {
+                          console.error("Error updating courier:", err);
+                        }
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem 0.75rem',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-color)',
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        backgroundColor: '#ffffff',
+                        color: '#0f172a',
+                        outline: 'none',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value="">No Courier Selected</option>
+                      <option value="Delhivery">Delhivery</option>
+                      <option value="DTDC">DTDC</option>
+                      <option value="ST Cargo">ST Cargo</option>
+                      <option value="Professional Couriers">Professional Couriers</option>
+                      <option value="Trackon">Trackon</option>
+                      <option value="India Post">India Post</option>
+                      <option value="Blue Dart">Blue Dart</option>
+                      <option value="Shadowfax">Shadowfax</option>
+                      <option value="Xpressbees">Xpressbees</option>
+                      <option value="Ecom Express">Ecom Express</option>
+                    </select>
+                    {order.courier && (
+                      <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#16a34a', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <span>🚚 Assigned:</span> <span>{order.courier}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

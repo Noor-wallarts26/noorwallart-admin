@@ -35,15 +35,16 @@ export const generateInvoiceHTML = (rawOrder, storeSettings = {}) => {
 
   const invoiceNumber = `INV-${order.id}`;
   const trackingNo = order.trackingNumber && order.trackingNumber !== 'N/A' ? order.trackingNumber : `TRK-${order.id}`;
+  const validCourier = order.courier && typeof order.courier === 'string' && order.courier !== 'N/A' && order.courier !== 'undefined' && order.courier !== 'null' ? order.courier.trim() : '';
 
   const qrDataText = `Order ID: ${order.id} | Invoice: ${invoiceNumber} | Customer: ${order.customer.name} | Phone: ${order.customer.phone} | Address: ${order.customer.fullAddress} | Status: ${order.paymentStatus} | Total: ${formatCurrency(order.totalPrice)} | Tracking: ${trackingNo}`;
   const qrUrl = getQRCodeURL(qrDataText);
   const barcodeSVG = generateBarcodeSVG(order.id);
 
-  // Address lines sanitation (only display non-N/A valid strings)
+  // Address lines sanitation (No '#' symbol before address)
   const billingEmailLine = order.customer.email && order.customer.email !== 'N/A' ? `<div><span style="color: #64748B;">Email:</span> ${order.customer.email}</div>` : '';
   const streetLine = order.customer.street && order.customer.street !== 'N/A' ? `${order.customer.street}, ` : '';
-  const houseLine = order.customer.houseNo && order.customer.houseNo !== 'N/A' ? `#${order.customer.houseNo}, ` : '';
+  const houseLine = order.customer.houseNo && order.customer.houseNo !== 'N/A' ? `${order.customer.houseNo}, ` : '';
   const buildingLine = order.customer.building && order.customer.building !== 'N/A' ? `${order.customer.building}, ` : '';
   const areaLine = order.customer.area && order.customer.area !== 'N/A' ? `${order.customer.area}, ` : '';
   const landmarkLine = order.customer.landmark && order.customer.landmark !== 'N/A' ? `(Near ${order.customer.landmark}), ` : '';
@@ -152,9 +153,11 @@ export const generateInvoiceHTML = (rawOrder, storeSettings = {}) => {
       align-items: stretch;
       gap: 16px;
       margin-bottom: 20px;
+      flex-wrap: wrap;
     }
     .meta-card {
       flex: 1;
+      min-width: 110px;
       background: #F8FAFC;
       border-radius: 10px;
       padding: 14px 16px;
@@ -304,6 +307,12 @@ export const generateInvoiceHTML = (rawOrder, storeSettings = {}) => {
         <div class="meta-label">Order ID</div>
         <div class="meta-val">#${order.id}</div>
       </div>
+      ${validCourier ? `
+        <div class="meta-card">
+          <div class="meta-label">Courier</div>
+          <div class="meta-val">${validCourier}</div>
+        </div>
+      ` : ''}
       <div class="meta-card">
         <div class="meta-label">Date & Time</div>
         <div class="meta-val">${order.formattedDate}</div>
@@ -337,7 +346,7 @@ export const generateInvoiceHTML = (rawOrder, storeSettings = {}) => {
         <div class="box-title">📋 Billing Details</div>
         <div class="box-content">
           <strong style="font-size: 14px; color: #0F172A;">${order.customer.name}</strong>
-          <div><span style="color: #64748B;">Mobile:</span> <strong>${order.customer.phone}</strong></div>
+          <div><span style="color: #64748B;">Contact:</span> <strong>${order.customer.phone}</strong></div>
           ${billingEmailLine}
           <div style="margin-top: 6px; font-size: 11.5px; color: #64748B;">
             TXN ID: <strong style="color: #0F172A;">${order.transactionId}</strong>
@@ -350,7 +359,7 @@ export const generateInvoiceHTML = (rawOrder, storeSettings = {}) => {
         <div class="box-title">🚚 Shipping Address</div>
         <div class="box-content">
           <strong style="font-size: 14px; color: #0F172A;">${order.customer.name}</strong>
-          <div><span style="color: #64748B;">Mobile:</span> <strong>${order.customer.phone}</strong></div>
+          <div><span style="color: #64748B;">Contact:</span> <strong>${order.customer.phone}</strong></div>
           <div style="margin-top: 4px;">${cleanFormattedAddress}</div>
         </div>
       </div>
@@ -378,9 +387,9 @@ export const generateInvoiceHTML = (rawOrder, storeSettings = {}) => {
 
     <!-- CODES & FINANCIAL SUMMARY -->
     <div class="summary-grid">
-      <!-- AUTOMATIC CODES -->
+      <!-- AUTOMATIC CODES (QR CODE ONLY - NO BORDER CONTAINER) -->
       <div class="codes-card">
-        <img src="${qrUrl}" alt="QR Code" width="95" height="95" style="border-radius: 6px; border: 1px solid #CBD5E1; flex-shrink: 0;" />
+        <img src="${qrUrl}" alt="QR Code" width="95" height="95" style="display: block; flex-shrink: 0;" />
         <div style="flex: 1; text-align: center;">
           <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #64748B; margin-bottom: 2px;">Print-Ready Code 39 Barcode</div>
           ${barcodeSVG}
@@ -448,13 +457,14 @@ export const generateShippingLabelHTML = (rawOrder, storeSettings = {}) => {
   const supportPhone = '+91 89253 25330';
   const isCOD = order.paymentMethod.toUpperCase().includes('COD');
   const trackingNo = order.trackingNumber && order.trackingNumber !== 'N/A' ? order.trackingNumber : `TRK-${order.id}`;
+  const validCourier = order.courier && typeof order.courier === 'string' && order.courier !== 'N/A' && order.courier !== 'undefined' && order.courier !== 'null' ? order.courier.trim() : '';
 
-  const qrDataText = `ShipTo:${order.customer.name}|Phone:${order.customer.phone}|OrderID:${order.id}|Address:${order.customer.fullAddress}|Tracking:${trackingNo}`;
+  const qrDataText = `ShipTo:${order.customer.name}|Contact:${order.customer.phone}|OrderID:${order.id}|Address:${order.customer.fullAddress}|Tracking:${trackingNo}`;
   const qrUrl = getQRCodeURL(qrDataText);
   const barcodeSVG = generateBarcodeSVG(order.id);
 
-  // Address lines sanitation
-  const houseLine = order.customer.houseNo && order.customer.houseNo !== 'N/A' ? `#${order.customer.houseNo}, ` : '';
+  // Address lines sanitation (No '#' symbol before address)
+  const houseLine = order.customer.houseNo && order.customer.houseNo !== 'N/A' ? `${order.customer.houseNo}, ` : '';
   const buildingLine = order.customer.building && order.customer.building !== 'N/A' ? `${order.customer.building}, ` : '';
   const streetLine = order.customer.street && order.customer.street !== 'N/A' ? `${order.customer.street}, ` : '';
   const areaLine = order.customer.area && order.customer.area !== 'N/A' ? `${order.customer.area}, ` : '';
@@ -580,18 +590,6 @@ export const generateShippingLabelHTML = (rawOrder, storeSettings = {}) => {
       padding-top: 6px;
     }
 
-    .badges-footer {
-      display: flex;
-      justify-content: space-around;
-      margin-top: 6px;
-      border: 1.5px dashed #000;
-      padding: 4px;
-      font-size: 10.5px;
-      font-weight: 900;
-      text-transform: uppercase;
-      background: #FFFBEB;
-    }
-
     .print-actions { text-align: center; margin-bottom: 12px; }
     .btn-action { background: #000; color: #FFF; border: none; padding: 8px 18px; font-weight: bold; border-radius: 4px; cursor: pointer; }
   </style>
@@ -625,14 +623,14 @@ export const generateShippingLabelHTML = (rawOrder, storeSettings = {}) => {
     <div class="ship-box">
       <div class="ship-title">DELIVER TO (RECIPIENT):</div>
       <div class="recip-name">${order.customer.name}</div>
-      <div class="recip-phone">📞 TEL: ${order.customer.phone}</div>
+      <div class="recip-phone">Contact: ${order.customer.phone}</div>
       <div class="recip-addr">${cleanAddress}</div>
       <div><span class="pin-badge">PIN: ${order.customer.pincode}</span></div>
     </div>
 
     <!-- SHIPPING INFO -->
     <div class="info-grid">
-      <div>COURIER: <strong>Express Logistics / India Post</strong></div>
+      <div>COURIER: <strong>${validCourier || ''}</strong></div>
       <div>TRACKING #: <strong>${trackingNo}</strong></div>
     </div>
 
@@ -642,18 +640,12 @@ export const generateShippingLabelHTML = (rawOrder, storeSettings = {}) => {
       ${contentsLines}
     </div>
 
-    <!-- BARCODE & QR -->
+    <!-- BARCODE & QR CODE (QR CODE ONLY - NO BORDER CONTAINER) -->
     <div class="codes-footer">
       <div style="width: 65%;">
         ${barcodeSVG}
       </div>
-      <img src="${qrUrl}" alt="QR Code" width="70" height="70" style="border: 1px solid #000; border-radius: 4px;" />
-    </div>
-
-    <!-- HANDLING BADGES -->
-    <div class="badges-footer">
-      <span>⚠️ FRAGILE</span>
-      <span>📦 HANDLE WITH CARE</span>
+      <img src="${qrUrl}" alt="QR Code" width="70" height="70" style="display: block;" />
     </div>
 
   </div>
