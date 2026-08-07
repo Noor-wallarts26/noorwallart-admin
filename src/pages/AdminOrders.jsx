@@ -82,7 +82,7 @@ const AdminOrders = () => {
     const productsText = getFormattedProductsList(order.items);
     const amountVal = order.totalPrice !== undefined && order.totalPrice !== null ? order.totalPrice : 0;
 
-    const message = `🎉 Order Delivered Successfully!\n\nHello ${customerName},\n\nYour order has been delivered successfully.\n\n📦 Order ID: ${orderId}\n🛍️ Product: ${productsText}\n💰 Amount: ₹${amountVal}\n\nThank you for shopping with NOORKARTS ❤️`;
+    const message = `Order Delivered Successfully!\n\nHello ${customerName},\n\nYour order has been delivered successfully.\n\nOrder ID: ${orderId}\nProduct: ${productsText}\nAmount: ₹${amountVal}\n\nThank you for shopping with NOORKARTS.`;
 
     const encodedText = encodeURIComponent(message);
     const waUrl = `https://wa.me/${waNumber}?text=${encodedText}`;
