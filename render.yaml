@@ -1,7 +1,17 @@
 services:
-  # Render Static Site Configuration for Admin Panel Single Page Application (SPA)
+  # Render Web Service Configuration (Node.js Production Server)
   - type: web
     name: noorwallart-admin
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+
+  # Render Static Site Configuration (Alternative SPA Build)
+  - type: web
+    name: noorwallart-admin-static
     env: static
     buildCommand: npm run build
     staticPublishPath: ./dist
