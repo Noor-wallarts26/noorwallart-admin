@@ -39,6 +39,83 @@ const AdminProductForm = () => {
   const [specifications, setSpecifications] = useState(existingProduct?.specifications || [{ name: '', value: '' }]);
   const [availableCoupons, setAvailableCoupons] = useState([]);
   const [selectedCouponId, setSelectedCouponId] = useState(existingProduct?.couponId || '');
+  const [allCategoriesList, setAllCategoriesList] = useState([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+
+  // Fetch all existing categories dynamically from database & context
+  useEffect(() => {
+    const fetchCategories = async () => {
+      setLoadingCategories(true);
+      try {
+        const snap = await getDocs(collection(db, 'categories'));
+        const dbCats = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        const catMap = new Map();
+
+        // Process Firestore categories collection
+        dbCats.forEach(c => {
+          const catName = typeof c === 'string' ? c : (c.name || c.title || '');
+          if (catName && catName !== 'All' && catName !== 'All Categories') {
+            catMap.set(catName.toLowerCase(), {
+              id: c.id || `cat-${catName}`,
+              name: catName,
+              order: c.order || 0
+            });
+          }
+        });
+
+        // Combine categories from ShopContext
+        if (Array.isArray(categories)) {
+          categories.forEach(c => {
+            const catName = typeof c === 'string' ? c : (c.name || c.title || '');
+            if (catName && catName !== 'All' && catName !== 'All Categories' && !catMap.has(catName.toLowerCase())) {
+              catMap.set(catName.toLowerCase(), {
+                id: (typeof c === 'object' && c.id) ? c.id : `cat-${catName}`,
+                name: catName,
+                order: (typeof c === 'object' && c.order) ? c.order : 0
+              });
+            }
+          });
+        }
+
+        // Combine categories from existing products (virtual categories)
+        if (Array.isArray(products)) {
+          products.forEach(p => {
+            if (p.category && p.category !== 'All' && p.category !== 'All Categories' && !catMap.has(p.category.toLowerCase())) {
+              catMap.set(p.category.toLowerCase(), {
+                id: `prod-cat-${p.category}`,
+                name: p.category,
+                order: 99
+              });
+            }
+          });
+        }
+
+        // Ensure active assigned category is in list
+        const activeCategory = formData.category || existingProduct?.category || location.state?.prefillCategory;
+        if (activeCategory && activeCategory !== 'All' && activeCategory !== 'All Categories' && !catMap.has(activeCategory.toLowerCase())) {
+          catMap.set(activeCategory.toLowerCase(), {
+            id: `active-cat-${activeCategory}`,
+            name: activeCategory,
+            order: 0
+          });
+        }
+
+        const sortedList = Array.from(catMap.values()).sort((a, b) => {
+          if (a.order !== b.order) return a.order - b.order;
+          return a.name.localeCompare(b.name);
+        });
+
+        setAllCategoriesList(sortedList);
+      } catch (err) {
+        console.error("Error fetching categories for product form:", err);
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+
+    fetchCategories();
+  }, [categories, products, formData.category, existingProduct, location.state]);
 
   // Load active coupons for assignment
   useEffect(() => {
@@ -316,10 +393,20 @@ const AdminProductForm = () => {
           <div className="card">
             <h3 className="mb-4">Organization</h3>
             <div className="form-group">
-              <label>Category</label>
-              <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+              <label>Category *</label>
+              <select 
+                required
+                value={formData.category} 
+                onChange={e => setFormData({...formData, category: e.target.value})}
+              >
                 <option value="">Select Category</option>
-                {categories && categories.sort((a,b) => (a.order || 0) - (b.order || 0)).map(cat => (
+                {loadingCategories && allCategoriesList.length === 0 && (
+                  <option value="" disabled>Loading categories...</option>
+                )}
+                {!loadingCategories && allCategoriesList.length === 0 && (
+                  <option value="" disabled>No categories created (Add in Categories section)</option>
+                )}
+                {allCategoriesList.map(cat => (
                   <option key={cat.id} value={cat.name}>{cat.name}</option>
                 ))}
               </select>
