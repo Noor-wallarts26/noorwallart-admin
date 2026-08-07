@@ -269,8 +269,10 @@ const AdminCoupons = () => {
   const { categories, products } = useContext(ShopContext);
   const [coupons, setCoupons] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
+  const codeInputRef = useRef(null);
   
   const categoryOptions = useMemo(() => {
     const catSet = new Set();
@@ -369,6 +371,7 @@ const AdminCoupons = () => {
   };
 
   const handleOpenModal = (coupon = null) => {
+    setIsSaving(false);
     if (coupon) {
       let catArr = ['All Categories'];
       if (Array.isArray(coupon.assignedCategories) && coupon.assignedCategories.length > 0) {
@@ -437,6 +440,13 @@ const AdminCoupons = () => {
       setEditingId(null);
     }
     setIsModalOpen(true);
+    // Auto-focus on Coupon Code input field
+    setTimeout(() => {
+      if (codeInputRef.current) {
+        codeInputRef.current.focus();
+        codeInputRef.current.select();
+      }
+    }, 150);
   };
 
   const handleUseLastSettings = () => {
@@ -479,6 +489,24 @@ const AdminCoupons = () => {
 
   const handleSaveCoupon = async (e) => {
     e.preventDefault();
+    if (isSaving) return;
+
+    const codeTrimmed = (formData.code || '').trim().toUpperCase();
+    if (!codeTrimmed) {
+      alert("Please enter a valid Coupon Code.");
+      if (codeInputRef.current) codeInputRef.current.focus();
+      return;
+    }
+
+    // Duplicate Coupon Code check
+    const isDuplicate = coupons.some(c => (c.code || '').toUpperCase() === codeTrimmed && c.id !== editingId);
+    if (isDuplicate) {
+      alert(`Coupon code "${codeTrimmed}" already exists! Please use a unique coupon code.`);
+      if (codeInputRef.current) codeInputRef.current.focus();
+      return;
+    }
+
+    setIsSaving(true);
 
     const catArr = Array.isArray(formData.assignedCategories) && formData.assignedCategories.length > 0
       ? formData.assignedCategories
@@ -496,7 +524,7 @@ const AdminCoupons = () => {
     const dataToSave = {
       ...formData,
       couponId: couponIdToSave || 'CPN-0001',
-      code: formData.code.toUpperCase(),
+      code: codeTrimmed,
       discountValue: Number(formData.discountValue),
       minOrderAmount: Number(formData.minOrderAmount) || 0,
       usageLimit: Number(formData.usageLimit) || 0,
@@ -536,10 +564,13 @@ const AdminCoupons = () => {
         });
       }
       setIsModalOpen(false);
+      setEditingId(null);
       alert(`Coupon ${editingId ? 'updated' : 'created'} successfully! Coupon ID: ${dataToSave.couponId}`);
     } catch (err) {
       console.error("Error saving coupon", err);
-      alert("Failed to save coupon");
+      alert("Failed to save coupon. Please try again.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -876,6 +907,7 @@ const AdminCoupons = () => {
               <div className="form-group">
                 <label>Coupon Code</label>
                 <input 
+                  ref={codeInputRef}
                   type="text" 
                   required
                   value={formData.code}
@@ -1009,8 +1041,27 @@ const AdminCoupons = () => {
                   </button>
                 )}
                 <div style={{ display: 'flex', gap: '0.75rem', marginLeft: 'auto' }}>
-                  <button type="button" className="btn-outline" onClick={() => setIsModalOpen(false)}>Cancel</button>
-                  <button type="submit" className="btn-primary">Save Coupon</button>
+                  <button type="button" className="btn-outline" onClick={() => setIsModalOpen(false)} disabled={isSaving}>Cancel</button>
+                  <button 
+                    type="submit" 
+                    className="btn-primary" 
+                    disabled={isSaving}
+                    style={{ 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      gap: '0.4rem', 
+                      opacity: isSaving ? 0.7 : 1, 
+                      cursor: isSaving ? 'not-allowed' : 'pointer' 
+                    }}
+                  >
+                    {isSaving ? (
+                      <>
+                        <RefreshCw size={16} className="animate-spin" /> Saving Coupon...
+                      </>
+                    ) : (
+                      editingId ? 'Update Coupon' : 'Save Coupon'
+                    )}
+                  </button>
                 </div>
               </div>
             </form>
