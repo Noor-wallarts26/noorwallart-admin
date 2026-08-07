@@ -825,6 +825,53 @@ const AdminSettings = () => {
                   </div>
                 </div>
 
+                {/* INDEPENDENCE DAY CAMPAIGN TOGGLE & END DATE CARD */}
+                <div style={{ padding: '1.5rem', border: '1px solid var(--border-light)', borderRadius: '12px', backgroundColor: '#FFFBEB', marginBottom: '1.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '1.1rem', color: '#92400E', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        🇮🇳 Independence Day Campaign Intro: {settings.independenceDayCampaignActive !== false ? 'ACTIVE (ON)' : 'DISABLED (OFF)'}
+                      </h4>
+                      <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem', color: '#78350F' }}>
+                        Displays the Yshift Logo intro & Independence Day Offer launch screen (~3s) on website load. Automatically expires after campaign end date.
+                      </p>
+                    </div>
+
+                    <label style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer', gap: '0.75rem' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={settings.independenceDayCampaignActive !== false} 
+                        onChange={async (e) => {
+                          const isChecked = e.target.checked;
+                          handleChange('independenceDayCampaignActive', isChecked);
+                          try {
+                            await setDoc(doc(db, 'settings', 'storeInfo'), { independenceDayCampaignActive: isChecked }, { merge: true });
+                          } catch (err) {
+                            console.error("Error toggling campaign status:", err);
+                          }
+                        }}
+                        style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                      />
+                      <span style={{ fontWeight: 700, fontSize: '0.9rem', color: settings.independenceDayCampaignActive !== false ? '#D97706' : '#64748B' }}>
+                        {settings.independenceDayCampaignActive !== false ? 'ACTIVE' : 'OFF'}
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label style={{ fontWeight: 600, fontSize: '0.85rem', color: '#78350F' }}>Campaign End Date & Time (Auto-Expiry)</label>
+                    <input 
+                      type="datetime-local" 
+                      value={settings.campaignEndDate || '2026-08-31T23:59'} 
+                      onChange={e => handleChange('campaignEndDate', e.target.value)} 
+                      style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid #FCD34D', width: '100%', maxWidth: '320px', backgroundColor: '#FFFFFF' }}
+                    />
+                    <p style={{ fontSize: '0.78rem', color: '#B45309', margin: '0.3rem 0 0 0' }}>
+                      After this date & time, the website will automatically stop displaying the Independence Day intro.
+                    </p>
+                  </div>
+                </div>
+
                 <div className="form-group" style={{ marginTop: '1.5rem' }}>
                   <label>Store Status</label>
                   <p className="text-muted text-sm" style={{ marginTop: '0.25rem' }}>
