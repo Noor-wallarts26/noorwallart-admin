@@ -200,22 +200,23 @@ const AdminOrders = () => {
     const courierName = (order.courier && typeof order.courier === 'string' && order.courier !== 'N/A' && order.courier !== 'undefined' && order.courier !== 'null') ? order.courier.trim() : '';
     const supportNumber = '+91 89253 25330';
 
+    const siteUrl = storeSettings?.domain || 'https://noorkarts.in';
     let message = '';
     if (newStatus === 'Accepted') {
-      message = `🎉 Hello ${customerName}!\n\nYour order has been accepted successfully. ✅\n\nOrder ID: #${orderId}\n\nWe’ll process your order shortly.`;
+      message = `Hello ${customerName}!\n\nYour order has been accepted successfully.\n\nOrder ID: #${orderId}\n\nWe’ll process your order shortly.`;
     } else if (newStatus === 'Processing') {
-      message = `⚙️ Hello ${customerName}!\n\nYour order is now being processed.\n\nOrder ID: #${orderId}`;
+      message = `Hello ${customerName}!\n\nYour order is now being processed.\n\nOrder ID: #${orderId}`;
     } else if (newStatus === 'Packed') {
-      message = `📦 Hello ${customerName}!\n\nYour order has been packed and is ready to ship. ✅\n\nOrder ID: #${orderId}`;
+      message = `Hello ${customerName}!\n\nYour order has been packed and is ready to ship.\n\nOrder ID: #${orderId}`;
     } else if (newStatus === 'Shipped') {
       const courierLine = courierName ? `\n\nShipped via: ${courierName}` : '';
-      message = `🚚 Hello ${customerName}!\n\nYour order has been shipped successfully. 📦\n\nOrder ID: #${orderId}${courierLine}`;
+      message = `Hello ${customerName}!\n\nYour order has been shipped successfully.\n\nOrder ID: #${orderId}${courierLine}`;
     } else if (newStatus === 'Delivered') {
-      message = `🎉 Hello ${customerName}!\n\nYour order has been delivered successfully. ✅\n\nOrder ID: #${orderId}\nProduct: ${productsText}\nAmount: ₹${amountVal}\n\nThank you for shopping with Noor Karts! ❤️`;
+      message = `Hello ${customerName}!\n\nYour order has been delivered successfully.\n\nOrder ID: #${orderId}\nProduct: ${productsText}\nAmount: ₹${amountVal}\n\nVisit Again:\n${siteUrl}\n\nThank you for shopping with Noor Karts.`;
     } else if (newStatus === 'Cancelled') {
-      message = `❌ Hello ${customerName}!\n\nYour order #${orderId} has been cancelled.\n\nIf you have any questions or need assistance, please contact our customer support:\n\n📞 ${supportNumber}\n\nThank you for choosing Noor Karts.`;
+      message = `Hello ${customerName}!\n\nYour order #${orderId} has been cancelled.\n\nIf you have any questions or need assistance, please contact our customer support:\n\nContact: ${supportNumber}\n\nThank you for choosing Noor Karts.`;
     } else {
-      message = `⚙️ Hello ${customerName}!\n\nYour order status has been updated to ${newStatus}.\n\nOrder ID: #${orderId}`;
+      message = `Hello ${customerName}!\n\nYour order status has been updated to ${newStatus}.\n\nOrder ID: #${orderId}`;
     }
 
     const encodedText = encodeURIComponent(message);

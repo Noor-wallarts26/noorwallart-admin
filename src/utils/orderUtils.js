@@ -240,29 +240,29 @@ export const sendWhatsAppOrderNotification = (orderData, targetPhone = '89253253
   ).join('\n');
 
   const message = 
-`🚨 *NEW ORDER ALERT - NOOR KARTS* 🚨
+`*NEW ORDER ALERT - NOOR KARTS*
 ---------------------------------
 *Order ID:* ${sanitized.id}
 *Date:* ${sanitized.formattedDate}
 
-👤 *Customer Details:*
+*Customer Details:*
 • *Name:* ${sanitized.customer.name}
 • *Phone:* ${sanitized.customer.phone}
 • *Email:* ${sanitized.customer.email}
 
-📦 *Ordered Items:*
+*Ordered Items:*
 ${itemLines}
 
-💰 *Financial Summary:*
+*Financial Summary:*
 • *Subtotal:* ${formatCurrency(sanitized.subtotal)}
 • *Shipping:* ${formatCurrency(sanitized.deliveryFee)}
 • *Discount:* ${formatCurrency(sanitized.discount)}
 • *Grand Total:* ${formatCurrency(sanitized.totalPrice)}
 
-💳 *Payment Method:* ${sanitized.paymentMethod}
-🛡️ *Payment Status:* ${sanitized.paymentStatus}
+*Payment Method:* ${sanitized.paymentMethod}
+*Payment Status:* ${sanitized.paymentStatus}
 
-📍 *Delivery Address:*
+*Delivery Address:*
 ${sanitized.customer.fullAddress}
 ---------------------------------
 Thank you for shopping with Noor Karts!`;

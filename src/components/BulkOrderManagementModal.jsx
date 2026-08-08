@@ -61,28 +61,29 @@ const getFormattedProductsList = (items) => {
     .join(', ');
 };
 
-const generateWhatsAppMessage = (newStatus, order, courierName = '') => {
+const generateWhatsAppMessage = (newStatus, order, courierName = '', websiteUrl = 'https://noorkarts.in') => {
   const customerName = (order.customer?.name && order.customer.name !== 'N/A' ? order.customer.name : 'Customer').trim();
   const orderId = order.id || 'N/A';
   const productsText = getFormattedProductsList(order.items);
   const amountVal = order.totalPrice !== undefined && order.totalPrice !== null ? order.totalPrice : 0;
   const supportNumber = '+91 89253 25330';
+  const siteUrl = websiteUrl || 'https://noorkarts.in';
 
   if (newStatus === 'Accepted') {
-    return `🎉 Hello ${customerName}!\n\nYour order has been accepted successfully. ✅\n\nOrder ID: #${orderId}\n\nWe’ll process your order shortly.`;
+    return `Hello ${customerName}!\n\nYour order has been accepted successfully.\n\nOrder ID: #${orderId}\n\nWe’ll process your order shortly.`;
   } else if (newStatus === 'Processing') {
-    return `⚙️ Hello ${customerName}!\n\nYour order is now being processed.\n\nOrder ID: #${orderId}`;
+    return `Hello ${customerName}!\n\nYour order is now being processed.\n\nOrder ID: #${orderId}`;
   } else if (newStatus === 'Packed') {
-    return `📦 Hello ${customerName}!\n\nYour order has been packed and is ready to ship. ✅\n\nOrder ID: #${orderId}`;
+    return `Hello ${customerName}!\n\nYour order has been packed and is ready to ship.\n\nOrder ID: #${orderId}`;
   } else if (newStatus === 'Shipped') {
     const courierLine = courierName ? `\n\nShipped via: ${courierName}` : '';
-    return `🚚 Hello ${customerName}!\n\nYour order has been shipped successfully. 📦\n\nOrder ID: #${orderId}${courierLine}`;
+    return `Hello ${customerName}!\n\nYour order has been shipped successfully.\n\nOrder ID: #${orderId}${courierLine}`;
   } else if (newStatus === 'Delivered') {
-    return `🎉 Hello ${customerName}!\n\nYour order has been delivered successfully. ✅\n\nOrder ID: #${orderId}\nProduct: ${productsText}\nAmount: ₹${amountVal}\n\nThank you for shopping with Noor Karts! ❤️`;
+    return `Hello ${customerName}!\n\nYour order has been delivered successfully.\n\nOrder ID: #${orderId}\nProduct: ${productsText}\nAmount: ₹${amountVal}\n\nVisit Again:\n${siteUrl}\n\nThank you for shopping with Noor Karts.`;
   } else if (newStatus === 'Cancelled') {
-    return `❌ Hello ${customerName}!\n\nYour order #${orderId} has been cancelled.\n\nIf you have any questions or need assistance, please contact our customer support:\n\n📞 ${supportNumber}\n\nThank you for choosing Noor Karts.`;
+    return `Hello ${customerName}!\n\nYour order #${orderId} has been cancelled.\n\nIf you have any questions or need assistance, please contact our customer support:\n\nContact: ${supportNumber}\n\nThank you for choosing Noor Karts.`;
   }
-  return `⚙️ Hello ${customerName}!\n\nYour order status has been updated to ${newStatus}.\n\nOrder ID: #${orderId}`;
+  return `Hello ${customerName}!\n\nYour order status has been updated to ${newStatus}.\n\nOrder ID: #${orderId}`;
 };
 
 const BulkOrderManagementModal = ({ isOpen, onClose, orders = [], updateOrderStatus }) => {
