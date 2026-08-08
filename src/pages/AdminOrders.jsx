@@ -1,10 +1,11 @@
 import React, { useContext, useState } from 'react';
 import { ShopContext } from '../context/ShopContext';
-import { Search, Filter, Download, Check, X, Truck, Package, Printer, FileText, Trash2, CheckSquare, Square } from 'lucide-react';
+import { Search, Filter, Download, Check, X, Truck, Package, Printer, FileText, Trash2, ListOrdered, CheckSquare, Square, History } from 'lucide-react';
 import { collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { printInvoice, printShippingLabel, printBatchShippingLabels } from '../utils/invoiceTemplate';
 import { sanitizeOrder, formatCurrency, formatDate } from '../utils/orderUtils';
+import BulkOrderManagementModal from '../components/BulkOrderManagementModal';
 
 const AdminOrders = () => {
   const { orders, updateOrderStatus, storeSettings } = useContext(ShopContext);
@@ -12,6 +13,9 @@ const AdminOrders = () => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [paymentFilter, setPaymentFilter] = useState('All');
   const [isWiping, setIsWiping] = useState(false);
+
+  // Bulk Order Status Modal state
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
 
   // Selection state for Batch Label Printing
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
@@ -150,6 +154,10 @@ const AdminOrders = () => {
       return;
     }
 
+    // Check duplicate notification prevention
+    const waHistory = order.waHistory || {};
+    const alreadySentWA = waHistory[newStatus]?.status === 'Sent';
+
     // 1. Save updated status in Firestore database
     try {
       const updatePayload = {
@@ -173,7 +181,12 @@ const AdminOrders = () => {
       return;
     }
 
-    // 2. Prepare WhatsApp Notification
+    // 2. Prepare WhatsApp Notification if not already sent
+    if (alreadySentWA) {
+      alert(`Order #${order.id} updated to ${newStatus}. Note: WhatsApp notification was already sent previously for this status.`);
+      return;
+    }
+
     const waNumber = sanitizePhoneForWhatsApp(order.customer?.phone);
     if (!waNumber) {
       alert(`Order status updated to ${newStatus}. Note: Customer WhatsApp number is missing or invalid.`);
@@ -188,7 +201,6 @@ const AdminOrders = () => {
     const supportNumber = '+91 89253 25330';
 
     let message = '';
-
     if (newStatus === 'Accepted') {
       message = `🎉 Hello ${customerName}!\n\nYour order has been accepted successfully. ✅\n\nOrder ID: #${orderId}\n\nWe’ll process your order shortly.`;
     } else if (newStatus === 'Processing') {
@@ -210,6 +222,25 @@ const AdminOrders = () => {
     const waUrl = `https://wa.me/${waNumber}?text=${encodedText}`;
 
     window.open(waUrl, '_blank');
+
+    // Update waHistory in Firestore Document
+    try {
+      const updatedHistory = {
+        ...waHistory,
+        [newStatus]: {
+          status: 'Sent',
+          timestamp: Date.now(),
+          message
+        }
+      };
+      await updateDoc(doc(db, 'orders', order.id), {
+        waHistory: updatedHistory,
+        lastWhatsAppStatus: 'Sent',
+        lastWhatsAppSentAt: Date.now()
+      });
+    } catch (e) {
+      console.error("Error saving waHistory:", e);
+    }
   };
 
   const wipeAllOrders = async () => {
@@ -241,8 +272,16 @@ const AdminOrders = () => {
     <div className="animate-fade-in">
       <div className="admin-page-header">
         <h1>Orders</h1>
-        <div className="flex gap-4">
-          <button className="btn-secondary">
+        <div className="flex gap-3 flex-wrap">
+          <button
+            onClick={() => setIsBulkModalOpen(true)}
+            className="btn-primary flex items-center gap-2"
+            style={{ fontWeight: 700, boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)' }}
+          >
+            <ListOrdered size={18} />
+            📋 Order Status for Recent Orders
+          </button>
+          <button className="btn-secondary flex items-center gap-2">
             <Download size={18} />
             Export CSV
           </button>
@@ -252,6 +291,14 @@ const AdminOrders = () => {
           </button>
         </div>
       </div>
+
+      {/* BULK ORDER MANAGEMENT MODAL VIEW */}
+      <BulkOrderManagementModal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        orders={orders}
+        updateOrderStatus={updateOrderStatus}
+      />
 
       {/* BATCH LABEL PRINTING SECTION */}
       <div className="card mb-4" style={{ border: '1.5px solid var(--border-color)', backgroundColor: 'var(--card-bg, #ffffff)', padding: '1.25rem' }}>
@@ -572,8 +619,33 @@ const AdminOrders = () => {
                 </div>
               </div>
 
+              {/* Order Status History Timeline & Notification Log */}
+              <div style={{ padding: '1rem 1.5rem', backgroundColor: '#FAF9F6', borderTop: '1px solid var(--border-light)', fontSize: '0.8rem' }}>
+                <h4 className="font-semibold text-muted mb-2" style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <History size={14} /> Status History & Notification Log
+                </h4>
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  {['Accepted', 'Processing', 'Packed', 'Shipped', 'Delivered', 'Cancelled'].map(st => {
+                    const historyItem = order.waHistory?.[st];
+                    const isCurrent = order.status === st;
+                    const isCompleted = historyItem?.status === 'Sent' || isCurrent;
+                    if (!isCompleted && !historyItem) return null;
+
+                    return (
+                      <div key={st} style={{ backgroundColor: '#ffffff', padding: '0.4rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <span style={{ fontWeight: 700, color: isCurrent ? 'var(--primary)' : '#475569' }}>{st}:</span>
+                        <span className="text-muted" style={{ fontSize: '0.75rem' }}>{formatDate(historyItem?.timestamp || order.updatedAt || order.timestamp)}</span>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: historyItem?.status === 'Sent' ? '#16a34a' : '#d97706' }}>
+                          {historyItem?.status === 'Sent' ? 'WhatsApp Sent ✅' : 'Updated'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Order Items Table */}
-              <div style={{ padding: '0 1.5rem 1.5rem 1.5rem' }}>
+              <div style={{ padding: '1.5rem' }}>
                 <h4 className="font-semibold mb-4 text-muted" style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ordered Items</h4>
                 <div className="table-container">
                   <table className="data-table">
