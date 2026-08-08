@@ -1,9 +1,9 @@
 import React, { useContext, useState } from 'react';
 import { ShopContext } from '../context/ShopContext';
-import { Search, Filter, Download, Check, X, Truck, Package, Printer, FileText, Trash2, ExternalLink } from 'lucide-react';
+import { Search, Filter, Download, Check, X, Truck, Package, Printer, FileText, Trash2, CheckSquare, Square } from 'lucide-react';
 import { collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { printInvoice, printShippingLabel } from '../utils/invoiceTemplate';
+import { printInvoice, printShippingLabel, printBatchShippingLabels } from '../utils/invoiceTemplate';
 import { sanitizeOrder, formatCurrency, formatDate } from '../utils/orderUtils';
 
 const AdminOrders = () => {
@@ -13,6 +13,10 @@ const AdminOrders = () => {
   const [paymentFilter, setPaymentFilter] = useState('All');
   const [isWiping, setIsWiping] = useState(false);
 
+  // Selection state for Batch Label Printing
+  const [selectedOrderIds, setSelectedOrderIds] = useState([]);
+
+  // Filtered orders list for order management table
   const filteredOrders = orders.map(o => sanitizeOrder(o)).filter(order => {
     const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           order.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -27,10 +31,82 @@ const AdminOrders = () => {
     return matchesSearch && matchesStatus && matchesPayment;
   }).sort((a, b) => b.timestamp - a.timestamp);
 
-  const handleStatusChange = async (orderId, newStatus) => {
-    if (updateOrderStatus) {
-      await updateOrderStatus(orderId, newStatus);
+  // Accepted orders ready/pending for label printing
+  const acceptedOrders = orders
+    .map(o => sanitizeOrder(o))
+    .filter(o => (o.status || '').toLowerCase() === 'accepted')
+    .sort((a, b) => b.timestamp - a.timestamp);
+
+  const toggleSelectOrder = (id) => {
+    setSelectedOrderIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllAccepted = () => {
+    setSelectedOrderIds(acceptedOrders.map(o => o.id));
+  };
+
+  const handleUnselectAllAccepted = () => {
+    setSelectedOrderIds([]);
+  };
+
+  const handlePrintSelectedLabels = async () => {
+    const ordersToPrint = acceptedOrders.filter(o => selectedOrderIds.includes(o.id));
+    if (ordersToPrint.length === 0) {
+      alert("Please select at least one accepted order to print.");
+      return;
     }
+
+    try {
+      const updatePromises = ordersToPrint.map(o =>
+        updateDoc(doc(db, 'orders', o.id), {
+          labelStatus: 'Printed',
+          labelPrintedAt: Date.now()
+        })
+      );
+      await Promise.all(updatePromises);
+    } catch (err) {
+      console.error("Error updating label status:", err);
+    }
+
+    printBatchShippingLabels(ordersToPrint, storeSettings);
+  };
+
+  const handlePrintAllLabels = async () => {
+    if (acceptedOrders.length === 0) {
+      alert("No accepted orders available for batch label printing.");
+      return;
+    }
+
+    const allAcceptedIds = acceptedOrders.map(o => o.id);
+    setSelectedOrderIds(allAcceptedIds);
+
+    try {
+      const updatePromises = acceptedOrders.map(o =>
+        updateDoc(doc(db, 'orders', o.id), {
+          labelStatus: 'Printed',
+          labelPrintedAt: Date.now()
+        })
+      );
+      await Promise.all(updatePromises);
+    } catch (err) {
+      console.error("Error updating label status:", err);
+    }
+
+    printBatchShippingLabels(acceptedOrders, storeSettings);
+  };
+
+  const handlePrintIndividualLabel = async (order) => {
+    try {
+      await updateDoc(doc(db, 'orders', order.id), {
+        labelStatus: 'Printed',
+        labelPrintedAt: Date.now()
+      });
+    } catch (err) {
+      console.error("Error updating label status:", err);
+    }
+    printShippingLabel(order, storeSettings);
   };
 
   const sanitizePhoneForWhatsApp = (phoneStr) => {
@@ -68,12 +144,39 @@ const AdminOrders = () => {
       .join(', ');
   };
 
-  const handleDeliveredWithWhatsApp = async (order) => {
-    await handleStatusChange(order.id, 'Delivered');
+  const handleStatusChangeWithNotification = async (order, newStatus) => {
+    if (order.status === newStatus) {
+      alert(`Order #${order.id} is already in status: ${newStatus}`);
+      return;
+    }
 
+    // 1. Save updated status in Firestore database
+    try {
+      const updatePayload = {
+        status: newStatus,
+        lastNotificationStatus: newStatus,
+        updatedAt: Date.now()
+      };
+
+      if (newStatus === 'Accepted' && !order.labelStatus) {
+        updatePayload.labelStatus = 'Pending';
+      }
+
+      await updateDoc(doc(db, 'orders', order.id), updatePayload);
+
+      if (updateOrderStatus) {
+        await updateOrderStatus(order.id, newStatus);
+      }
+    } catch (err) {
+      console.error("Error updating status in DB:", err);
+      alert("Failed to update status in database: " + err.message);
+      return;
+    }
+
+    // 2. Prepare WhatsApp Notification
     const waNumber = sanitizePhoneForWhatsApp(order.customer?.phone);
     if (!waNumber) {
-      alert("Order marked as Delivered. Customer WhatsApp number is missing or invalid.");
+      alert(`Order status updated to ${newStatus}. Note: Customer WhatsApp number is missing or invalid.`);
       return;
     }
 
@@ -81,14 +184,29 @@ const AdminOrders = () => {
     const orderId = order.id || 'N/A';
     const productsText = getFormattedProductsList(order.items);
     const amountVal = order.totalPrice !== undefined && order.totalPrice !== null ? order.totalPrice : 0;
+    const courierPartner = order.courier || 'Express Courier';
 
-    const message = `Order Delivered Successfully!\n\nHello ${customerName},\n\nYour order has been delivered successfully.\n\nOrder ID: ${orderId}\nProduct: ${productsText}\nAmount: ₹${amountVal}\n\nThank you for shopping with NOORKARTS.`;
+    let message = '';
+    if (newStatus === 'Accepted') {
+      message = `Order Accepted & Confirmed!\n\nHello ${customerName},\n\nYour order #${orderId} for ${productsText} (Total: ₹${amountVal}) has been accepted and confirmed!\n\nThank you for shopping with NOORKARTS.`;
+    } else if (newStatus === 'Processing') {
+      message = `Order Processing Update!\n\nHello ${customerName},\n\nYour order #${orderId} is currently being processed by our team.\n\nThank you for shopping with NOORKARTS.`;
+    } else if (newStatus === 'Packed') {
+      message = `Order Packed & Ready!\n\nHello ${customerName},\n\nYour order #${orderId} has been packed and is ready for shipment.\n\nThank you for shopping with NOORKARTS.`;
+    } else if (newStatus === 'Shipped') {
+      message = `Order Shipped!\n\nHello ${customerName},\n\nYour order #${orderId} has been shipped via ${courierPartner}.\n\nThank you for shopping with NOORKARTS.`;
+    } else if (newStatus === 'Delivered') {
+      message = `Order Delivered Successfully!\n\nHello ${customerName},\n\nYour order has been delivered successfully.\n\nOrder ID: ${orderId}\nProduct: ${productsText}\nAmount: ₹${amountVal}\n\nThank you for shopping with NOORKARTS.`;
+    } else if (newStatus === 'Cancelled') {
+      message = `Order Status Update: Cancelled\n\nHello ${customerName},\n\nYour order #${orderId} has been cancelled. If you have any questions, please contact customer support (+91 89253 25330).\n\nThank you for shopping with NOORKARTS.`;
+    } else {
+      message = `Order Status Update: ${newStatus}\n\nHello ${customerName},\n\nYour order #${orderId} status has been updated to ${newStatus}.\n\nThank you for shopping with NOORKARTS.`;
+    }
 
     const encodedText = encodeURIComponent(message);
     const waUrl = `https://wa.me/${waNumber}?text=${encodedText}`;
 
     window.open(waUrl, '_blank');
-    alert("Order marked as Delivered. WhatsApp message is ready to send.");
   };
 
   const wipeAllOrders = async () => {
@@ -130,6 +248,119 @@ const AdminOrders = () => {
             {isWiping ? 'Wiping DB...' : 'Reset Orders DB'}
           </button>
         </div>
+      </div>
+
+      {/* BATCH LABEL PRINTING SECTION */}
+      <div className="card mb-4" style={{ border: '1.5px solid var(--border-color)', backgroundColor: 'var(--card-bg, #ffffff)', padding: '1.25rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Printer size={20} color="var(--primary)" />
+              Label Printing System (Accepted Orders)
+            </h3>
+            <p className="text-muted text-xs" style={{ margin: 0 }}>
+              Accepted Orders Pending Label Printing: <strong style={{ color: 'var(--primary)' }}>{acceptedOrders.length}</strong>
+            </p>
+          </div>
+
+          {acceptedOrders.length > 0 && (
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={handleSelectAllAccepted}
+                className="btn-outline"
+                style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
+              >
+                Select All ({acceptedOrders.length})
+              </button>
+              <button
+                type="button"
+                onClick={handleUnselectAllAccepted}
+                className="btn-outline"
+                style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
+              >
+                Unselect All
+              </button>
+              <button
+                type="button"
+                onClick={handlePrintSelectedLabels}
+                disabled={selectedOrderIds.length === 0}
+                className="btn-primary"
+                style={{ fontSize: '0.85rem', padding: '0.5rem 1rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                <Printer size={16} />
+                Print Selected Labels ({selectedOrderIds.length})
+              </button>
+              <button
+                type="button"
+                onClick={handlePrintAllLabels}
+                className="btn-secondary"
+                style={{ fontSize: '0.85rem', padding: '0.5rem 1rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                <Printer size={16} />
+                Print All Labels
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* CHECKBOX SELECTION LIST OF ACCEPTED ORDERS */}
+        {acceptedOrders.length > 0 ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '0.75rem', marginTop: '1rem', borderTop: '1px solid var(--border-light)', paddingTop: '1rem' }}>
+            {acceptedOrders.map(order => {
+              const isSelected = selectedOrderIds.includes(order.id);
+              const isPrinted = order.labelStatus === 'Printed';
+              return (
+                <label
+                  key={order.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.6rem',
+                    padding: '0.6rem 0.8rem',
+                    borderRadius: '8px',
+                    border: isSelected ? '1.5px solid var(--primary)' : '1px solid var(--border-color)',
+                    backgroundColor: isSelected ? 'rgba(79, 70, 229, 0.05)' : '#FAF9F6',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    fontWeight: 600
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleSelectOrder(order.id)}
+                    style={{ accentColor: 'var(--primary)', width: '16px', height: '16px', cursor: 'pointer' }}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span className="font-semibold" style={{ fontSize: '0.85rem' }}>#{order.id}</span>
+                      <span
+                        style={{
+                          fontSize: '0.65rem',
+                          fontWeight: 800,
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          backgroundColor: isPrinted ? '#DEF7EC' : '#FEF08A',
+                          color: isPrinted ? '#03543F' : '#713F12'
+                        }}
+                      >
+                        {isPrinted ? 'Printed' : 'Pending'}
+                      </span>
+                    </div>
+                    <span className="text-muted text-xs block truncate" style={{ fontSize: '0.75rem' }}>
+                      {order.customer?.name}
+                    </span>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{ padding: '0.75rem 0 0 0', color: '#64748b', fontSize: '0.85rem' }}>
+            No accepted orders currently pending batch label printing. Click <strong>Accept</strong> on an order to queue it here.
+          </div>
+        )}
       </div>
 
       <div className="card mb-4">
@@ -197,13 +428,26 @@ const AdminOrders = () => {
                   <span className={`status-badge ${order.status?.toLowerCase() || 'pending'}`}>
                     {order.status || 'Pending'}
                   </span>
+                  <span
+                    style={{
+                      fontSize: '0.7rem',
+                      fontWeight: 800,
+                      padding: '3px 8px',
+                      borderRadius: '12px',
+                      backgroundColor: order.labelStatus === 'Printed' ? '#DEF7EC' : '#F3E8FF',
+                      color: order.labelStatus === 'Printed' ? '#03543F' : '#6B21A8',
+                      border: `1px solid ${order.labelStatus === 'Printed' ? '#84E1BC' : '#D8B4FE'}`
+                    }}
+                  >
+                    {order.labelStatus === 'Printed' ? 'Label Printed ✅' : 'Label Pending 📦'}
+                  </span>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => printInvoice(order, storeSettings)} className="btn-secondary" style={{ padding: '0.5rem 0.75rem', fontSize: '0.875rem' }} title="Print / Download Invoice">
                     <FileText size={16} />
                     Invoice (PDF)
                   </button>
-                  <button onClick={() => printShippingLabel(order, storeSettings)} className="btn-secondary" style={{ padding: '0.5rem 0.75rem', fontSize: '0.875rem' }} title="Print / Download Shipping Label">
+                  <button onClick={() => handlePrintIndividualLabel(order)} className="btn-secondary" style={{ padding: '0.5rem 0.75rem', fontSize: '0.875rem' }} title="Print / Download Shipping Label">
                     <Printer size={16} />
                     Label (A6)
                   </button>
@@ -303,22 +547,22 @@ const AdminOrders = () => {
                 <div>
                   <h4 className="font-semibold mb-4 text-muted" style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Update Status</h4>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                    <button className="btn-secondary" style={{ padding: '0.5rem', fontSize: '0.875rem' }} onClick={() => handleStatusChange(order.id, 'Accepted')}>
+                    <button className="btn-secondary" style={{ padding: '0.5rem', fontSize: '0.875rem' }} onClick={() => handleStatusChangeWithNotification(order, 'Accepted')}>
                       <Check size={16} className="text-success" /> Accept
                     </button>
-                    <button className="btn-secondary" style={{ padding: '0.5rem', fontSize: '0.875rem' }} onClick={() => handleStatusChange(order.id, 'Processing')}>
+                    <button className="btn-secondary" style={{ padding: '0.5rem', fontSize: '0.875rem' }} onClick={() => handleStatusChangeWithNotification(order, 'Processing')}>
                       Processing
                     </button>
-                    <button className="btn-secondary" style={{ padding: '0.5rem', fontSize: '0.875rem' }} onClick={() => handleStatusChange(order.id, 'Packed')}>
+                    <button className="btn-secondary" style={{ padding: '0.5rem', fontSize: '0.875rem' }} onClick={() => handleStatusChangeWithNotification(order, 'Packed')}>
                       <Package size={16} /> Packed
                     </button>
-                    <button className="btn-secondary" style={{ padding: '0.5rem', fontSize: '0.875rem' }} onClick={() => handleStatusChange(order.id, 'Shipped')}>
+                    <button className="btn-secondary" style={{ padding: '0.5rem', fontSize: '0.875rem' }} onClick={() => handleStatusChangeWithNotification(order, 'Shipped')}>
                       <Truck size={16} /> Shipped
                     </button>
-                    <button className="btn-secondary" style={{ padding: '0.5rem', fontSize: '0.875rem', gridColumn: '1 / -1' }} onClick={() => handleDeliveredWithWhatsApp(order)}>
+                    <button className="btn-secondary" style={{ padding: '0.5rem', fontSize: '0.875rem', gridColumn: '1 / -1' }} onClick={() => handleStatusChangeWithNotification(order, 'Delivered')}>
                       Delivered
                     </button>
-                    <button className="btn-danger" style={{ padding: '0.5rem', fontSize: '0.875rem', gridColumn: '1 / -1' }} onClick={() => handleStatusChange(order.id, 'Cancelled')}>
+                    <button className="btn-danger" style={{ padding: '0.5rem', fontSize: '0.875rem', gridColumn: '1 / -1' }} onClick={() => handleStatusChangeWithNotification(order, 'Cancelled')}>
                       <X size={16} /> Cancel Order
                     </button>
                   </div>

@@ -656,6 +656,203 @@ export const generateShippingLabelHTML = (rawOrder, storeSettings = {}) => {
 };
 
 /**
+ * Generates Premium NOORKARTS A6 Batch Shipping Labels HTML.
+ */
+export const generateBatchShippingLabelsHTML = (ordersArray = [], storeSettings = {}) => {
+  const supportEmail = 'noorkarts.in@gmail.com';
+  const supportPhone = '+91 89253 25330';
+
+  const labelCardsHTML = ordersArray.map((rawOrder) => {
+    const order = sanitizeOrder(rawOrder);
+    const isCOD = order.paymentMethod.toUpperCase().includes('COD');
+    const trackingNo = order.trackingNumber && order.trackingNumber !== 'N/A' ? order.trackingNumber : `TRK-${order.id}`;
+    const validCourier = order.courier && typeof order.courier === 'string' && order.courier !== 'N/A' && order.courier !== 'undefined' && order.courier !== 'null' ? order.courier.trim() : '';
+
+    const qrDataText = `ShipTo:${order.customer.name}|Contact:${order.customer.phone}|OrderID:${order.id}|Address:${order.customer.fullAddress}|Tracking:${trackingNo}`;
+    const qrUrl = getQRCodeURL(qrDataText);
+    const barcodeSVG = generateBarcodeSVG(order.id);
+
+    const houseLine = order.customer.houseNo && order.customer.houseNo !== 'N/A' ? `${order.customer.houseNo}, ` : '';
+    const buildingLine = order.customer.building && order.customer.building !== 'N/A' ? `${order.customer.building}, ` : '';
+    const streetLine = order.customer.street && order.customer.street !== 'N/A' ? `${order.customer.street}, ` : '';
+    const areaLine = order.customer.area && order.customer.area !== 'N/A' ? `${order.customer.area}, ` : '';
+    const landmarkLine = order.customer.landmark && order.customer.landmark !== 'N/A' ? `(Near ${order.customer.landmark}), ` : '';
+    const cityLine = order.customer.city && order.customer.city !== 'N/A' ? `${order.customer.city}, ` : '';
+    const stateLine = order.customer.state && order.customer.state !== 'N/A' ? `${order.customer.state}` : '';
+    const pincodeLine = order.customer.pincode && order.customer.pincode !== 'N/A' ? ` - ${order.customer.pincode}` : '';
+
+    const cleanAddress = `${houseLine}${buildingLine}${streetLine}${areaLine}${landmarkLine}${cityLine}${stateLine}${pincodeLine}`.replace(/,\s*,/g, ',').trim() || order.customer.fullAddress;
+    const contentsLines = order.items.map(i => `• ${i.title} (x${i.quantity})`).join('<br />');
+
+    return `
+      <div class="label-page">
+        <div class="label-card">
+          <div class="brand-top">
+            <div class="brand-name">NOORKARTS</div>
+            <div class="brand-sub">Email: ${supportEmail} | Phone: ${supportPhone}</div>
+          </div>
+          <div class="badge-row">
+            <div>
+              <div style="font-size: 9px; font-weight: 900; text-transform: uppercase;">Order ID</div>
+              <div style="font-size: 15px; font-weight: 900;">#${order.id}</div>
+            </div>
+            <div class="${isCOD ? 'payment-badge-cod' : 'payment-badge-paid'}">
+              ${isCOD ? `COD: ${formatCurrency(order.totalPrice)}` : 'PREPAID - PAID ✅'}
+            </div>
+          </div>
+          <div class="ship-box">
+            <div class="ship-title">DELIVER TO (RECIPIENT):</div>
+            <div class="recip-name">${order.customer.name}</div>
+            <div class="recip-phone">Contact: ${order.customer.phone}</div>
+            <div class="recip-addr">${cleanAddress}</div>
+            <div><span class="pin-badge">PIN: ${order.customer.pincode}</span></div>
+          </div>
+          <div class="info-grid">
+            <div>COURIER: <strong>${validCourier || ''}</strong></div>
+            <div>TRACKING #: <strong>${trackingNo}</strong></div>
+          </div>
+          <div class="contents-box">
+            <strong style="text-transform: uppercase;">Ordered Items (${order.items.length}):</strong><br />
+            ${contentsLines}
+          </div>
+          <div class="codes-footer">
+            <div style="width: 65%;">
+              ${barcodeSVG}
+            </div>
+            <img src="${qrUrl}" alt="QR Code" width="70" height="70" style="display: block;" />
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>NOORKARTS Batch Shipping Labels (${ordersArray.length} Orders)</title>
+  <style>
+    @media print {
+      @page { size: A6 portrait; margin: 3mm; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 0; background: #FFFFFF; }
+      .no-print { display: none !important; }
+      .label-page { page-break-after: always; break-after: page; padding: 0; }
+      .label-page:last-child { page-break-after: avoid; break-after: avoid; }
+      .label-card { border: 2.5px solid #000000 !important; box-shadow: none !important; }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+      background: #F1F5F9;
+      padding: 16px;
+      color: #000000;
+    }
+    .label-page {
+      margin-bottom: 24px;
+    }
+    .label-card {
+      width: 100%;
+      max-width: 390px;
+      margin: 0 auto;
+      background: #FFFFFF;
+      border: 3px solid #000000;
+      padding: 12px;
+      border-radius: 8px;
+    }
+    .brand-top {
+      text-align: center;
+      border-bottom: 2.5px solid #000000;
+      padding-bottom: 6px;
+      margin-bottom: 8px;
+    }
+    .brand-name {
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-family: Arial, sans-serif;
+    }
+    .brand-sub { font-size: 10.5px; font-weight: 700; color: #333333; }
+    .badge-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #000000;
+      padding-bottom: 6px;
+      margin-bottom: 8px;
+    }
+    .payment-badge-paid {
+      background: #000000;
+      color: #FFFFFF;
+      font-size: 14px;
+      font-weight: 900;
+      padding: 4px 10px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .payment-badge-cod {
+      background: #DC2626;
+      color: #FFFFFF;
+      font-size: 14px;
+      font-weight: 900;
+      padding: 4px 10px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .ship-box {
+      border: 2px solid #000000;
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      background: #FAF9F6;
+    }
+    .ship-title { font-size: 10px; font-weight: 900; text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 2px; margin-bottom: 4px; }
+    .recip-name { font-size: 17px; font-weight: 900; text-transform: uppercase; line-height: 1.2; margin-bottom: 2px; }
+    .recip-phone { font-size: 15px; font-weight: 900; margin-bottom: 4px; }
+    .recip-addr { font-size: 12.5px; font-weight: 700; line-height: 1.35; color: #000; }
+    .pin-badge { font-size: 18px; font-weight: 900; background: #000; color: #FFF; display: inline-block; padding: 2px 8px; border-radius: 4px; margin-top: 4px; }
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      font-size: 10.5px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      border: 1px solid #000;
+      padding: 6px;
+      border-radius: 4px;
+    }
+    .contents-box {
+      border: 1px solid #000000;
+      padding: 6px 8px;
+      font-size: 10.5px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      border-radius: 4px;
+    }
+    .codes-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 2px solid #000000;
+      padding-top: 6px;
+    }
+    .print-actions { text-align: center; margin-bottom: 16px; }
+    .btn-action { background: #000; color: #FFF; border: none; padding: 10px 22px; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="print-actions no-print">
+    <button class="btn-action" onclick="window.print()">🖨️ Print All ${ordersArray.length} Selected A6 Labels</button>
+  </div>
+  ${labelCardsHTML}
+</body>
+</html>
+  `;
+};
+
+/**
  * Opens browser print window for Invoice.
  */
 export const printInvoice = (order, storeSettings = {}) => {
@@ -673,6 +870,19 @@ export const printInvoice = (order, storeSettings = {}) => {
 export const printShippingLabel = (order, storeSettings = {}) => {
   const html = generateShippingLabelHTML(order, storeSettings);
   const win = window.open('', '_blank', 'width=620,height=850');
+  if (win) {
+    win.document.write(html);
+    win.document.close();
+  }
+};
+
+/**
+ * Opens browser print window for Batch Shipping Labels.
+ */
+export const printBatchShippingLabels = (ordersArray = [], storeSettings = {}) => {
+  if (!ordersArray || ordersArray.length === 0) return;
+  const html = generateBatchShippingLabelsHTML(ordersArray, storeSettings);
+  const win = window.open('', '_blank', 'width=640,height=900');
   if (win) {
     win.document.write(html);
     win.document.close();
