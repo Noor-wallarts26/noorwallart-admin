@@ -122,7 +122,7 @@ const AdminCustomers = () => {
     let phone = customer.phone.replace(/\D/g, '');
     if (phone.length === 10) phone = '91' + phone; // Default to India if 10 digits
     
-    const message = `Hi ${customer.name},\n\nThank you for choosing Noor Wallarts! We're reaching out regarding...`;
+    const message = `Hi ${customer.name},\n\nThank you for choosing Noor Karts! We're reaching out regarding...`;
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
   };

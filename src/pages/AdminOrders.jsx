@@ -180,27 +180,30 @@ const AdminOrders = () => {
       return;
     }
 
-    const customerName = (order.customer?.name && order.customer.name !== 'N/A' ? order.customer.name : 'Valued Customer').trim();
+    const customerName = (order.customer?.name && order.customer.name !== 'N/A' ? order.customer.name : 'Customer').trim();
     const orderId = order.id || 'N/A';
     const productsText = getFormattedProductsList(order.items);
     const amountVal = order.totalPrice !== undefined && order.totalPrice !== null ? order.totalPrice : 0;
-    const courierPartner = order.courier || 'Express Courier';
+    const courierName = (order.courier && typeof order.courier === 'string' && order.courier !== 'N/A' && order.courier !== 'undefined' && order.courier !== 'null') ? order.courier.trim() : '';
+    const supportNumber = '+91 89253 25330';
 
     let message = '';
+
     if (newStatus === 'Accepted') {
-      message = `Order Accepted & Confirmed!\n\nHello ${customerName},\n\nYour order #${orderId} for ${productsText} (Total: ₹${amountVal}) has been accepted and confirmed!\n\nThank you for shopping with NOORKARTS.`;
+      message = `🎉 Hello ${customerName}!\n\nYour order has been accepted successfully. ✅\n\nOrder ID: #${orderId}\n\nWe’ll process your order shortly.`;
     } else if (newStatus === 'Processing') {
-      message = `Order Processing Update!\n\nHello ${customerName},\n\nYour order #${orderId} is currently being processed by our team.\n\nThank you for shopping with NOORKARTS.`;
+      message = `⚙️ Hello ${customerName}!\n\nYour order is now being processed.\n\nOrder ID: #${orderId}`;
     } else if (newStatus === 'Packed') {
-      message = `Order Packed & Ready!\n\nHello ${customerName},\n\nYour order #${orderId} has been packed and is ready for shipment.\n\nThank you for shopping with NOORKARTS.`;
+      message = `📦 Hello ${customerName}!\n\nYour order has been packed and is ready to ship. ✅\n\nOrder ID: #${orderId}`;
     } else if (newStatus === 'Shipped') {
-      message = `Order Shipped!\n\nHello ${customerName},\n\nYour order #${orderId} has been shipped via ${courierPartner}.\n\nThank you for shopping with NOORKARTS.`;
+      const courierLine = courierName ? `\n\nShipped via: ${courierName}` : '';
+      message = `🚚 Hello ${customerName}!\n\nYour order has been shipped successfully. 📦\n\nOrder ID: #${orderId}${courierLine}`;
     } else if (newStatus === 'Delivered') {
-      message = `Order Delivered Successfully!\n\nHello ${customerName},\n\nYour order has been delivered successfully.\n\nOrder ID: ${orderId}\nProduct: ${productsText}\nAmount: ₹${amountVal}\n\nThank you for shopping with NOORKARTS.`;
+      message = `🎉 Hello ${customerName}!\n\nYour order has been delivered successfully. ✅\n\nOrder ID: #${orderId}\nProduct: ${productsText}\nAmount: ₹${amountVal}\n\nThank you for shopping with Noor Karts! ❤️`;
     } else if (newStatus === 'Cancelled') {
-      message = `Order Status Update: Cancelled\n\nHello ${customerName},\n\nYour order #${orderId} has been cancelled. If you have any questions, please contact customer support (+91 89253 25330).\n\nThank you for shopping with NOORKARTS.`;
+      message = `❌ Hello ${customerName}!\n\nYour order #${orderId} has been cancelled.\n\nIf you have any questions or need assistance, please contact our customer support:\n\n📞 ${supportNumber}\n\nThank you for choosing Noor Karts.`;
     } else {
-      message = `Order Status Update: ${newStatus}\n\nHello ${customerName},\n\nYour order #${orderId} status has been updated to ${newStatus}.\n\nThank you for shopping with NOORKARTS.`;
+      message = `⚙️ Hello ${customerName}!\n\nYour order status has been updated to ${newStatus}.\n\nOrder ID: #${orderId}`;
     }
 
     const encodedText = encodeURIComponent(message);
