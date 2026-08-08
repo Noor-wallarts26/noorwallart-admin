@@ -222,18 +222,45 @@ const BulkOrderManagementModal = ({ isOpen, onClose, orders = [], updateOrderSta
 
     const { targetStatus, courierName, eligible } = eligibilitySummary;
 
-    // Create initial queue items list
+    // 1. Instantly Update Order Status in Firestore DB for ALL eligible orders first
+    for (const order of eligible) {
+      try {
+        const updatePayload = {
+          status: targetStatus,
+          updatedAt: Date.now()
+        };
+        if (targetStatus === 'Shipped' && courierName) {
+          updatePayload.courier = courierName;
+        }
+        await updateDoc(doc(db, 'orders', order.id), updatePayload);
+        if (updateOrderStatus) {
+          await updateOrderStatus(order.id, targetStatus);
+        }
+      } catch (err) {
+        console.error(`DB Update Error for order #${order.id}:`, err);
+      }
+    }
+
+    // 2. Create initial queue items list with per-customer message data
     const items = eligible.map(order => {
       const waHistory = order.waHistory || {};
       const alreadySent = waHistory[targetStatus]?.status === 'Sent';
+      const waNumber = sanitizePhoneForWhatsApp(order.customer?.phone);
+      const messageText = generateWhatsAppMessage(targetStatus, order, courierName);
 
       return {
         order,
+        orderId: order.id,
+        customerName: order.customer?.name || 'Customer',
+        customerPhone: order.customer?.phone || 'N/A',
         targetStatus,
         courierName,
-        status: alreadySent ? 'skipped' : 'pending',
-        skipReason: alreadySent ? 'Already Sent — Skipped' : '',
-        error: ''
+        waNumber,
+        messageText,
+        waUrl: waNumber ? `https://wa.me/${waNumber}?text=${encodeURIComponent(messageText)}` : null,
+        status: !waNumber ? 'failed' : (alreadySent ? 'skipped' : 'pending'),
+        skipReason: alreadySent ? 'Already Sent — Skipped' : (!waNumber ? 'Missing Phone Number' : ''),
+        error: !waNumber ? 'Missing or invalid phone number' : ''
       };
     });
 
@@ -259,23 +286,7 @@ const BulkOrderManagementModal = ({ isOpen, onClose, orders = [], updateOrderSta
       const item = currentItems[i];
       setQueueProgress({ current: i + 1, total: currentItems.length });
 
-      if (item.status === 'skipped') {
-        // Update order status in DB even if WhatsApp notification was previously sent
-        try {
-          const updatePayload = {
-            status: item.targetStatus,
-            updatedAt: Date.now()
-          };
-          if (item.targetStatus === 'Shipped' && item.courierName) {
-            updatePayload.courier = item.courierName;
-          }
-          await updateDoc(doc(db, 'orders', item.order.id), updatePayload);
-          if (updateOrderStatus) {
-            await updateOrderStatus(item.order.id, item.targetStatus);
-          }
-        } catch (e) {
-          console.error("DB update error on skipped item:", e);
-        }
+      if (item.status === 'skipped' || item.status === 'failed') {
         continue;
       }
 
@@ -283,64 +294,47 @@ const BulkOrderManagementModal = ({ isOpen, onClose, orders = [], updateOrderSta
       currentItems[i].status = 'sending';
       setQueueItems([...currentItems]);
 
-      // 1. Update Order Status in Firestore DB
-      try {
-        const updatePayload = {
-          status: item.targetStatus,
-          updatedAt: Date.now()
-        };
-        if (item.targetStatus === 'Shipped' && item.courierName) {
-          updatePayload.courier = item.courierName;
-        }
-        await updateDoc(doc(db, 'orders', item.order.id), updatePayload);
-        if (updateOrderStatus) {
-          await updateOrderStatus(item.order.id, item.targetStatus);
-        }
-      } catch (err) {
-        console.error("Failed to update status in DB:", err);
-        currentItems[i].status = 'failed';
-        currentItems[i].error = "DB Update Failed: " + err.message;
-        setQueueItems([...currentItems]);
-        continue;
-      }
-
-      // 2. Prepare & Trigger WhatsApp Notification
-      const waNumber = sanitizePhoneForWhatsApp(item.order.customer?.phone);
-      if (!waNumber) {
-        currentItems[i].status = 'failed';
-        currentItems[i].error = 'Missing or invalid WhatsApp phone number';
-        setQueueItems([...currentItems]);
-      } else {
-        const messageText = generateWhatsAppMessage(item.targetStatus, item.order, item.courierName);
-        const encodedText = encodeURIComponent(messageText);
-        const waUrl = `https://wa.me/${waNumber}?text=${encodedText}`;
-
+      // Trigger WhatsApp Notification
+      if (item.waUrl) {
+        let openedWin = null;
         try {
-          window.open(waUrl, '_blank');
-
-          // Update waHistory in Firestore Document
-          const existingHistory = item.order.waHistory || {};
-          const updatedHistory = {
-            ...existingHistory,
-            [item.targetStatus]: {
-              status: 'Sent',
-              timestamp: Date.now(),
-              message: messageText
-            }
-          };
-
-          await updateDoc(doc(db, 'orders', item.order.id), {
-            waHistory: updatedHistory,
-            lastWhatsAppStatus: 'Sent',
-            lastWhatsAppSentAt: Date.now()
-          });
-
-          currentItems[i].status = 'sent';
-        } catch (err) {
-          console.error("WhatsApp window.open failed:", err);
-          currentItems[i].status = 'failed';
-          currentItems[i].error = err.message || 'Popup blocked or window failed';
+          openedWin = window.open(item.waUrl, '_blank');
+        } catch (winErr) {
+          console.warn("window.open exception:", winErr);
         }
+
+        if (openedWin && !openedWin.closed) {
+          // Window opened successfully! Update waHistory in Firestore
+          try {
+            const existingHistory = item.order.waHistory || {};
+            const updatedHistory = {
+              ...existingHistory,
+              [item.targetStatus]: {
+                status: 'Sent',
+                timestamp: Date.now(),
+                message: item.messageText
+              }
+            };
+
+            await updateDoc(doc(db, 'orders', item.order.id), {
+              waHistory: updatedHistory,
+              lastWhatsAppStatus: 'Sent',
+              lastWhatsAppSentAt: Date.now()
+            });
+
+            currentItems[i].status = 'sent';
+          } catch (histErr) {
+            console.error("Firestore waHistory update error:", histErr);
+            currentItems[i].status = 'sent'; // Chat opened regardless
+          }
+        } else {
+          // Browser popup blocker prevented automatic pop-up. Keep in queue as 'action_required'
+          currentItems[i].status = 'action_required';
+          currentItems[i].error = 'Popup blocked by browser. Click "Open Chat" below to launch.';
+        }
+      } else {
+        currentItems[i].status = 'failed';
+        currentItems[i].error = 'Invalid WhatsApp URL';
       }
 
       setQueueItems([...currentItems]);
@@ -353,7 +347,7 @@ const BulkOrderManagementModal = ({ isOpen, onClose, orders = [], updateOrderSta
       }));
 
       // Wait delay before processing next item in queue (if not last item)
-      if (i < currentItems.length - 1 && delaySec > 0) {
+      if (i < currentItems.length - 1 && delaySec > 0 && currentItems[i].status !== 'action_required') {
         await new Promise(resolve => setTimeout(resolve, delaySec * 1000));
       }
     }
@@ -362,15 +356,67 @@ const BulkOrderManagementModal = ({ isOpen, onClose, orders = [], updateOrderSta
     setShowSummaryModal(true);
   };
 
+  const handleManualOpenChatItem = async (itemIndex) => {
+    const item = queueItems[itemIndex];
+    if (!item || !item.waUrl) return;
+
+    window.open(item.waUrl, '_blank');
+
+    try {
+      const existingHistory = item.order.waHistory || {};
+      const updatedHistory = {
+        ...existingHistory,
+        [item.targetStatus]: {
+          status: 'Sent',
+          timestamp: Date.now(),
+          message: item.messageText
+        }
+      };
+
+      await updateDoc(doc(db, 'orders', item.order.id), {
+        waHistory: updatedHistory,
+        lastWhatsAppStatus: 'Sent',
+        lastWhatsAppSentAt: Date.now()
+      });
+    } catch (e) {
+      console.error("waHistory error:", e);
+    }
+
+    const updated = [...queueItems];
+    updated[itemIndex].status = 'sent';
+    updated[itemIndex].error = '';
+    setQueueItems(updated);
+
+    // Resume loop if there are remaining pending items
+    const remainingPending = updated.filter(i => i.status === 'pending' || i.status === 'action_required');
+    if (remainingPending.length === 0) {
+      setIsProcessingQueue(false);
+      setShowSummaryModal(true);
+    }
+  };
+
+  const handleSkipCurrentItem = (itemIndex) => {
+    const updated = [...queueItems];
+    updated[itemIndex].status = 'skipped';
+    updated[itemIndex].skipReason = 'Skipped by Admin';
+    setQueueItems(updated);
+
+    const remainingPending = updated.filter(i => i.status === 'pending' || i.status === 'action_required');
+    if (remainingPending.length === 0) {
+      setIsProcessingQueue(false);
+      setShowSummaryModal(true);
+    }
+  };
+
   const handleRetryFailed = () => {
-    const failedItems = queueItems.filter(item => item.status === 'failed');
+    const failedItems = queueItems.filter(item => item.status === 'failed' || item.status === 'action_required');
     if (failedItems.length === 0) {
-      alert("No failed items to retry.");
+      alert("No failed or blocked items to retry.");
       return;
     }
 
     const resetItems = queueItems.map(item => {
-      if (item.status === 'failed') {
+      if (item.status === 'failed' || item.status === 'action_required') {
         return { ...item, status: 'pending', error: '' };
       }
       return item;
@@ -509,15 +555,56 @@ const BulkOrderManagementModal = ({ isOpen, onClose, orders = [], updateOrderSta
           <div style={{ padding: '1rem 1.5rem', backgroundColor: '#EFF6FF', borderBottom: '1px solid #BFDBFE' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
               <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#1E40AF', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <RefreshCw size={16} className="animate-spin" /> Processing Orders Queue ({queueProgress.current} / {queueProgress.total} Completed)
+                <RefreshCw size={16} className="animate-spin" /> Processing Bulk Orders ({queueProgress.current} / {queueProgress.total} Items)
               </span>
               <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1E40AF' }}>
                 {Math.round((queueProgress.current / (queueProgress.total || 1)) * 100)}%
               </span>
             </div>
-            <div style={{ width: '100%', height: '8px', backgroundColor: '#DBEAFE', borderRadius: '4px', overflow: 'hidden' }}>
+            
+            <div style={{ width: '100%', height: '8px', backgroundColor: '#DBEAFE', borderRadius: '4px', overflow: 'hidden', marginBottom: '0.75rem' }}>
               <div style={{ width: `${(queueProgress.current / (queueProgress.total || 1)) * 100}%`, height: '100%', backgroundColor: '#2563EB', transition: 'width 0.3s ease' }}></div>
             </div>
+
+            {/* Action Required Banner for Blocked Popups */}
+            {queueItems.some(i => i.status === 'action_required' || (i.status === 'sending' && !i.error)) && (
+              <div style={{ backgroundColor: '#FEF3C7', border: '1px solid #FDE68A', padding: '0.75rem 1rem', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                {(() => {
+                  const activeIdx = queueItems.findIndex(i => i.status === 'action_required' || i.status === 'sending');
+                  const activeItem = queueItems[activeIdx];
+                  if (!activeItem) return null;
+
+                  return (
+                    <>
+                      <div>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#92400E' }}>
+                          ⏳ Order #{activeItem.orderId} ({activeItem.customerName}): WhatsApp Action Required
+                        </span>
+                        <div style={{ fontSize: '0.78rem', color: '#B45309', marginTop: '0.1rem' }}>
+                          Status updated in database. Click below to launch WhatsApp chat.
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button
+                          onClick={() => handleManualOpenChatItem(activeIdx)}
+                          className="btn-primary"
+                          style={{ padding: '0.4rem 0.9rem', fontSize: '0.82rem', fontWeight: 800, backgroundColor: '#25D366', borderColor: '#25D366', color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                        >
+                          💬 Open WhatsApp Chat ({activeItem.customerName})
+                        </button>
+                        <button
+                          onClick={() => handleSkipCurrentItem(activeIdx)}
+                          className="btn-outline"
+                          style={{ padding: '0.4rem 0.8rem', fontSize: '0.82rem', fontWeight: 700 }}
+                        >
+                          Skip
+                        </button>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
           </div>
         )}
 
